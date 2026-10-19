@@ -4,9 +4,11 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import math
+import os
 import random
 import xml.etree.ElementTree as ET
 from typing import Any
+from urllib.parse import urlparse
 
 import cv2
 import torch
@@ -19,6 +21,83 @@ def detection_collate(batch):
     return tuple(zip(*batch))
 
 
+def _kaggle_dataset_id(value: str) -> str | None:
+    """Accept a Kaggle owner/slug, kaggle:owner/slug, or canonical dataset URL."""
+    value = value.strip()
+    if value.startswith("kaggle:"):
+        value = value.removeprefix("kaggle:").strip("/")
+    elif value.startswith(("https://www.kaggle.com/datasets/", "http://www.kaggle.com/datasets/")):
+        parts = [part for part in urlparse(value).path.split("/") if part]
+        if len(parts) < 3 or parts[0] != "datasets":
+            return None
+        value = "/".join(parts[1:3])
+    elif value.startswith(("/", ".")):
+        return None
+    parts = value.split("/")
+    if len(parts) == 2 and all(part and part not in {".", ".."} for part in parts):
+        return value
+    return None
+
+
+def resolve_dataset_paths(config: dict) -> dict:
+    """Resolve UA-DETRAC paths under the root stored in data/ or the environment."""
+    project_root = Path(__file__).resolve().parents[2]
+    pointer_file = project_root / "data" / "dataset_path.txt"
+    data_root = os.environ.get("TRAFFICVISION_DATA_ROOT")
+    if not data_root and pointer_file.is_file():
+        pointer_value = pointer_file.read_text(encoding="utf-8").strip()
+        if pointer_value:
+            kaggle_id = _kaggle_dataset_id(pointer_value)
+            if kaggle_id:
+                data_root = f"kaggle:{kaggle_id}"
+            else:
+                pointer_path = Path(pointer_value).expanduser()
+                data_root = str(pointer_path if pointer_path.is_absolute() else pointer_file.parent / pointer_path)
+    if not data_root:
+        return dict(config)
+
+    dataset_id = _kaggle_dataset_id(data_root)
+    if dataset_id:
+        owner, slug = dataset_id.split("/", 1)
+        root = Path("/kaggle/input") / slug
+        if not root.is_dir():
+            raise FileNotFoundError(
+                f"Kaggle dataset {owner}/{slug} is not mounted at {root}. "
+                "In the Kaggle Notebook, add this dataset through Add Input and verify its mounted folder."
+            )
+    else:
+        root = Path(data_root).expanduser()
+
+    # Some Kaggle uploads include one or two enclosing directories. Search
+    # folder names only; do not traverse every image or copy read-only input.
+    candidates = [root]
+    try:
+        first_level = [path for path in root.iterdir() if path.is_dir()]
+    except OSError:
+        first_level = []
+    candidates.extend(first_level)
+    for path in first_level:
+        try:
+            candidates.extend(child for child in path.iterdir() if child.is_dir())
+        except OSError:
+            continue
+    candidates.extend(root / name for name in ("DETRAC-dataset", "ua-detrac-orig", "ua_detrac"))
+    resolved_config = dict(config)
+    anchors = {"DETRAC-Images", "DETRAC-Train-Annotations-XML", "DETRAC-Test-Annotations-XML"}
+    for key in ("image_root", "train_annotations", "test_annotations"):
+        value = config.get(key)
+        if not value:
+            continue
+        parts = Path(value).expanduser().parts
+        anchor_index = next((i for i, part in enumerate(parts) if part in anchors), None)
+        if anchor_index is None:
+            continue
+        suffix = Path(*parts[anchor_index:])
+        resolved = next((candidate / suffix for candidate in candidates if (candidate / suffix).exists()), None)
+        resolved_config[key] = str(resolved or candidates[0] / suffix)
+    return resolved_config
+
+
 class VehicleDataset(Dataset):
     """Frame-level vehicle records with contiguous labels starting at 1."""
 
@@ -28,6 +107,12 @@ class VehicleDataset(Dataset):
                  training: bool = False, flip_probability: float = 0.5):
         self.image_root = Path(image_root)
         self.annotation_path = Path(annotation_path)
+        if not self.image_root.is_dir():
+            pointer_file = Path(__file__).resolve().parents[2] / "data" / "dataset_path.txt"
+            raise FileNotFoundError(
+                f"Image directory not found: {self.image_root}. Set the dataset root in {pointer_file} "
+                "or override it with TRAFFICVISION_DATA_ROOT."
+            )
         self.class_names = list(class_names)
         if not self.class_names or len(set(self.class_names)) != len(self.class_names):
             raise ValueError("class_names must be a non-empty list of unique names")
@@ -153,6 +238,7 @@ class VehicleDataset(Dataset):
 
 def build_dataset(config: dict, split: str, training: bool = False) -> VehicleDataset:
     """Build a split; DETRAC validation is selected by sequence, never by frame."""
+    config = resolve_dataset_paths(config)
     if split not in {"train", "val", "test"}:
         raise ValueError("split must be train, val or test")
     fmt = config.get("format", "detrac_xml")

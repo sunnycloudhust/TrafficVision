@@ -4,7 +4,7 @@ Modular vehicle detection and tracking with Torchvision Faster R-CNN and ByteTra
 
 ## Dataset and labels
 
-The repository includes UA-DETRAC images and XML annotations at the paths in [`configs/dataset.yaml`](configs/dataset.yaml). The annotation files contain `vehicle_type`, pixel boxes (`left`, `top`, `width`, `height`), frame numbers, and per-sequence target IDs. All four observed labels are configured: `car`, `van`, `bus`, and `others`. Label 0 is reserved for Faster R-CNN background; the configured classes are assigned contiguous labels 1–4.
+The UA-DETRAC root is read from [`data/dataset_path.txt`](data/dataset_path.txt); relative values are resolved from the `data/` folder. Expected image and annotation subfolders are listed in [`configs/dataset.yaml`](configs/dataset.yaml). The annotation files contain `vehicle_type`, pixel boxes (`left`, `top`, `width`, `height`), frame numbers, and per-sequence target IDs. All four observed labels are configured: `car`, `van`, `bus`, and `others`. Label 0 is reserved for Faster R-CNN background; the configured classes are assigned contiguous labels 1–4.
 
 The official UA-DETRAC test sequences stay held out. The 60 official training sequences are split deterministically by video into train and validation (default seed 42, validation fraction 0.15), so frames from one video cannot cross those splits. The 40 official test sequences include ground-truth IDs, so tracking metrics can be calculated. Change paths, classes, and mappings in YAML for another dataset.
 
@@ -22,6 +22,27 @@ python -m pip install -r requirements.txt
 ```
 
 On this Intel Mac, PyTorch runs on CPU; Intel Iris is not a CUDA device. On Linux with NVIDIA, install the matching CUDA build using the [official selector](https://pytorch.org/get-started/locally/) and keep Torch/Torchvision versions paired. `device: auto` selects CUDA when available and CPU otherwise. CPU training on UA-DETRAC will be slow; reduce `batch_size`/`epochs` for a smoke run, or use a CUDA machine for full experiments.
+
+## Run on Kaggle without storing the dataset locally
+
+You do not need to download UA-DETRAC to your personal computer. Create or use a Kaggle Dataset containing the extracted image and annotation folders, then open a Kaggle Notebook and choose **Add Input** to attach that dataset (search by its Kaggle link/name). Kaggle mounts inputs read-only under `/kaggle/input`; this makes the files available to the notebook without copying them into your computer or downloading them on every run. The dataset must contain these folders, with the same nested layout as the local copy:
+
+```text
+DETRAC-Images/DETRAC-Images/
+DETRAC-Train-Annotations-XML/DETRAC-Train-Annotations-XML/
+DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/
+```
+
+The configured source is [`bratjay/ua-detrac-orig`](https://www.kaggle.com/datasets/bratjay/ua-detrac-orig), recorded in `data/dataset_path.txt`. In the Kaggle Notebook, choose **Add Input** and attach that dataset. The loader resolves the identifier to `/kaggle/input/ua-detrac-orig`; if Kaggle shows a different folder name, set `TRAFFICVISION_DATA_ROOT` to that exact mounted path. It searches for the expected image and annotation folders at the mount root and up to two enclosing directory levels. It does not extract ZIP archives or copy the read-only input.
+
+```python
+!git clone https://github.com/sunnycloudhust/TrafficVision.git
+%cd TrafficVision
+!cat data/dataset_path.txt
+!ls /kaggle/input/ua-detrac-orig
+```
+
+In a following notebook cell, run `!python scripts/train_pretrained.py` or `!python scripts/train_custom.py`. Kaggle's standard notebook image already includes PyTorch; avoid reinstalling the macOS-pinned Torch pair from `requirements.txt` there. Set `device: auto` in `configs/train.yaml` to use an available NVIDIA GPU. Kaggle input files are read-only, while checkpoints and logs go under the repository's `checkpoints/` and `outputs/` directories in `/kaggle/working`; save/download those outputs before the notebook session ends. If your Kaggle dataset contains ZIP archives rather than extracted folders, extract them to writable `/kaggle/working` storage first and put that extracted directory in `data/dataset_path.txt`. `TRAFFICVISION_DATA_ROOT` can also override the pointer file when needed.
 
 ByteTrack uses Supervision's model-agnostic `Detections` adapter. The dependency is restricted below 0.31 because Supervision removed its built-in `ByteTrack` wrapper in 0.31. TrackEval is optional for tracking metrics:
 

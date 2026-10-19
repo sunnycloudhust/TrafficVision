@@ -1,7 +1,7 @@
 format: detrac_xml # detrac_xml | coco
-image_root: data/DETRAC-dataset/DETRAC-Images/DETRAC-Images
-train_annotations: data/DETRAC-dataset/DETRAC-Train-Annotations-XML/DETRAC-Train-Annotations-XML
-test_annotations: data/DETRAC-dataset/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML
+image_root: DETRAC-Images/DETRAC-Images
+train_annotations: DETRAC-Train-Annotations-XML/DETRAC-Train-Annotations-XML
+test_annotations: DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML
 class_names: [car, van, bus, others]
 category_mapping: {} # optional source category id/name -> configured class name
 split_seed: 42

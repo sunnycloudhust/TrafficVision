@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import cv2
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.datasets import build_dataset
+from src.datasets import build_dataset, resolve_dataset_paths
 from src.detection.predictor import Predictor
 from src.models.loading import load_model_checkpoint
 from src.evaluation.tracking_metrics import run_trackeval
@@ -48,6 +48,7 @@ def main():
     eval_cfg = load_yaml(args.config); trk_cfg = load_yaml(args.tracking_config)
     root = Path(args.config).resolve().parent.parent
     ds_cfg = load_yaml(root / eval_cfg["dataset_config"])
+    ds_cfg = resolve_dataset_paths(ds_cfg)
     if ds_cfg.get("format") != "detrac_xml":
         raise ValueError("This tracking exporter currently requires UA-DETRAC XML with per-frame target IDs")
     model, state = load_model_checkpoint(args.checkpoint, choose_device(eval_cfg.get("device", "auto")))
