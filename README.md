@@ -33,13 +33,13 @@ DETRAC-Train-Annotations-XML/DETRAC-Train-Annotations-XML/
 DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/
 ```
 
-The configured source is [`bratjay/ua-detrac-orig`](https://www.kaggle.com/datasets/bratjay/ua-detrac-orig), recorded in `data/dataset_path.txt`. In the Kaggle Notebook, choose **Add Input** and attach that dataset. The loader resolves the identifier to `/kaggle/input/ua-detrac-orig`; if Kaggle shows a different folder name, set `TRAFFICVISION_DATA_ROOT` to that exact mounted path. It searches for the expected image and annotation folders at the mount root and up to two enclosing directory levels. It does not extract ZIP archives or copy the read-only input.
+The configured source is [`bratjay/ua-detrac-orig`](https://www.kaggle.com/datasets/bratjay/ua-detrac-orig), recorded in `data/dataset_path.txt`. In the Kaggle Notebook, choose **Add Input** and attach that dataset. The loader first checks `/kaggle/input/ua-detrac-orig`, then searches mounted input folders and up to two enclosing directory levels for the configured image and annotation folders. It does not extract ZIP archives or copy the read-only input. If the dataset is archived, extract it to `/kaggle/working` and set `TRAFFICVISION_DATA_ROOT` to the extracted root.
 
 ```python
 !git clone https://github.com/sunnycloudhust/TrafficVision.git
 %cd TrafficVision
 !cat data/dataset_path.txt
-!ls /kaggle/input/ua-detrac-orig
+!ls /kaggle/input
 ```
 
 In a following notebook cell, run `!python scripts/train_pretrained.py` or `!python scripts/train_custom.py`. Kaggle's standard notebook image already includes PyTorch; avoid reinstalling the macOS-pinned Torch pair from `requirements.txt` there. Set `device: auto` in `configs/train.yaml` to use an available NVIDIA GPU. Kaggle input files are read-only, while checkpoints and logs go under the repository's `checkpoints/` and `outputs/` directories in `/kaggle/working`; save/download those outputs before the notebook session ends. If your Kaggle dataset contains ZIP archives rather than extracted folders, extract them to writable `/kaggle/working` storage first and put that extracted directory in `data/dataset_path.txt`. `TRAFFICVISION_DATA_ROOT` can also override the pointer file when needed.

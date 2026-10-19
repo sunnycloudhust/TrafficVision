@@ -56,43 +56,86 @@ def resolve_dataset_paths(config: dict) -> dict:
     if not data_root:
         return dict(config)
 
+    anchors = {"DETRAC-Images", "DETRAC-Train-Annotations-XML", "DETRAC-Test-Annotations-XML"}
+    suffixes = {}
+    for key in ("image_root", "train_annotations", "test_annotations"):
+        value = config.get(key)
+        if value:
+            parts = Path(value).expanduser().parts
+            anchor_index = next((i for i, part in enumerate(parts) if part in anchors), None)
+            if anchor_index is not None:
+                suffixes[key] = Path(*parts[anchor_index:])
+
     dataset_id = _kaggle_dataset_id(data_root)
     if dataset_id:
         owner, slug = dataset_id.split("/", 1)
-        root = Path("/kaggle/input") / slug
-        if not root.is_dir():
+        input_root = Path("/kaggle/input")
+        expected_root = input_root / slug
+        try:
+            mounts = sorted((path for path in input_root.iterdir() if path.is_dir()), key=lambda p: p.name)
+        except OSError:
+            mounts = []
+
+        # The input folder may have a different visible name, or the dataset
+        # may contain an extra enclosing directory. Locate it by the actual
+        # image and annotation layout instead of assuming the mount slug.
+        search_roots = [expected_root] if expected_root.is_dir() else []
+        for mount in mounts:
+            if mount not in search_roots:
+                search_roots.append(mount)
+            try:
+                first_level = [path for path in mount.iterdir() if path.is_dir()]
+            except OSError:
+                first_level = []
+            for path in first_level:
+                if path not in search_roots:
+                    search_roots.append(path)
+                try:
+                    second_level = [child for child in path.iterdir() if child.is_dir()]
+                except OSError:
+                    second_level = []
+                search_roots.extend(child for child in second_level if child not in search_roots)
+
+        required_keys = [key for key in ("image_root", "train_annotations", "test_annotations") if key in suffixes]
+        root = next(
+            (candidate for candidate in search_roots
+             if required_keys and all((candidate / suffixes[key]).exists() for key in required_keys)),
+            None,
+        )
+        if root is None:
+            expected_layout = ", ".join(str(suffixes[key]) for key in required_keys)
+            available = ", ".join(path.name for path in mounts) or "(no mounted datasets)"
             raise FileNotFoundError(
-                f"Kaggle dataset {owner}/{slug} is not mounted at {root}. "
-                "In the Kaggle Notebook, add this dataset through Add Input and verify its mounted folder."
+                f"Could not find the required UA-DETRAC folders for Kaggle dataset {owner}/{slug}. "
+                f"Expected under /kaggle/input: {expected_layout}. Mounted inputs: {available}. "
+                "Use Add Input to attach the dataset, then extract any ZIP files to /kaggle/working "
+                "and set TRAFFICVISION_DATA_ROOT to the extracted root if needed."
             )
     else:
         root = Path(data_root).expanduser()
 
     # Some Kaggle uploads include one or two enclosing directories. Search
     # folder names only; do not traverse every image or copy read-only input.
-    candidates = [root]
-    try:
-        first_level = [path for path in root.iterdir() if path.is_dir()]
-    except OSError:
-        first_level = []
-    candidates.extend(first_level)
-    for path in first_level:
+    if dataset_id:
+        candidates = [root]
+    else:
+        candidates = [root]
         try:
-            candidates.extend(child for child in path.iterdir() if child.is_dir())
+            first_level = [path for path in root.iterdir() if path.is_dir()]
         except OSError:
-            continue
-    candidates.extend(root / name for name in ("DETRAC-dataset", "ua-detrac-orig", "ua_detrac"))
+            first_level = []
+        candidates.extend(first_level)
+        for path in first_level:
+            try:
+                candidates.extend(child for child in path.iterdir() if child.is_dir())
+            except OSError:
+                continue
+        candidates.extend(root / name for name in ("DETRAC-dataset", "ua-detrac-orig", "ua_detrac"))
     resolved_config = dict(config)
-    anchors = {"DETRAC-Images", "DETRAC-Train-Annotations-XML", "DETRAC-Test-Annotations-XML"}
     for key in ("image_root", "train_annotations", "test_annotations"):
-        value = config.get(key)
-        if not value:
+        suffix = suffixes.get(key)
+        if suffix is None:
             continue
-        parts = Path(value).expanduser().parts
-        anchor_index = next((i for i, part in enumerate(parts) if part in anchors), None)
-        if anchor_index is None:
-            continue
-        suffix = Path(*parts[anchor_index:])
         resolved = next((candidate / suffix for candidate in candidates if (candidate / suffix).exists()), None)
         resolved_config[key] = str(resolved or candidates[0] / suffix)
     return resolved_config
