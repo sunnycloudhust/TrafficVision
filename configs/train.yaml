@@ -1,0 +1,21 @@
+seed: 42
+device: auto
+distributed: auto # auto-detect torchrun; supports CPU/gloo or CUDA/NCCL
+batch_size: 2
+epochs: 20
+learning_rate: 0.0001
+optimizer: AdamW # AdamW | SGD
+weight_decay: 0.0001
+momentum: 0.9
+num_workers: 0
+validation_fraction: 0.15
+checkpoint_dir: checkpoints
+resume: null
+save_every: 1
+mixed_precision: false
+validation_confidence_threshold: 0.5
+validation_iou_threshold: 0.5
+best_metric: val_map50 # val_map50 | val_precision | val_recall
+log_dir: outputs/logs
+dataset_config: configs/dataset.yaml
+model_config: configs/model.yaml

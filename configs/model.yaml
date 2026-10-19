@@ -1,0 +1,11 @@
+architecture: fasterrcnn_resnet50_fpn
+num_classes: null # derived from class_names, plus background
+class_names: [car, van, bus, others]
+initialization: scratch # scratch | pretrained
+pretrained_weights: DEFAULT
+freeze_backbone: false
+score_threshold: 0.05
+nms_threshold: 0.5
+box_detections_per_img: 100
+min_size: 800
+max_size: 1333

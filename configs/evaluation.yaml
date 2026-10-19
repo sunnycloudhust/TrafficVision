@@ -1,0 +1,11 @@
+confidence_threshold: 0.5
+iou_threshold: 0.5
+device: auto
+batch_size: 1
+num_workers: 0
+checkpoint: checkpoints/scratch/best.pt
+dataset_config: configs/dataset.yaml
+model_config: configs/model.yaml
+output_dir: outputs/metrics
+tracking_ground_truth_split: test
+trackeval_root: null # path to TrackEval checkout; required by evaluate_tracking.py
