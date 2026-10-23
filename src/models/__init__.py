@@ -15,7 +15,7 @@ def build_model(config: dict):
     configured_count = config.get("num_classes")
     if configured_count is not None and int(configured_count) != len(names) + 1:
         raise ValueError("num_classes must include one background class in addition to class_names")
-    
+    #### Build models ### 
     init = config.get("initialization", "scratch")
     if init == "scratch":
         return build_scratch_model(config)
