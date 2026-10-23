@@ -1,0 +1,18 @@
+# Local dataset and generated artifacts
+dataset/
+outputs/
+*.pth
+*.pt
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local editor and OS files
+.DS_Store
+.vscode/

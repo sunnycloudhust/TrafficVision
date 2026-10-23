@@ -1,0 +1,7 @@
+# Install a matching PyTorch / TorchVision pair for your platform first.
+numpy
+Pillow
+PyYAML
+scipy
+opencv-contrib-python
+

@@ -1,6 +1,7 @@
-"""Faster R-CNN model constructors."""
+"""Object detector constructors."""
 from .faster_rcnn_custom import build_scratch_model
 from .faster_rcnn_pretrained import build_pretrained_model
+from .region_based import FastRCNNSelectiveSearch, RCNNSelectiveSearch
 
 
 def build_model(config: dict):
@@ -15,7 +16,18 @@ def build_model(config: dict):
     configured_count = config.get("num_classes")
     if configured_count is not None and int(configured_count) != len(names) + 1:
         raise ValueError("num_classes must include one background class in addition to class_names")
-    #### Build models ### 
+    architecture = config.get("architecture", "fasterrcnn_resnet50_fpn")
+    initialization = config.get("initialization", "scratch")
+    if initialization not in {"scratch", "pretrained"}:
+        raise ValueError("initialization must be 'scratch' or 'pretrained'")
+    if architecture == "fast_rcnn":
+        return FastRCNNSelectiveSearch(config)
+    if architecture == "rcnn":
+        return RCNNSelectiveSearch(config)
+    if architecture != "fasterrcnn_resnet50_fpn":
+        raise ValueError("architecture must be 'fasterrcnn_resnet50_fpn', 'fast_rcnn', or 'rcnn'")
+
+    #### Build Faster R-CNN ###
     init = config.get("initialization", "scratch")
     if init == "scratch":
         return build_scratch_model(config)
@@ -24,4 +36,7 @@ def build_model(config: dict):
     raise ValueError("initialization must be 'scratch' or 'pretrained'")
 
 
-__all__ = ["build_model", "build_scratch_model", "build_pretrained_model"]
+__all__ = [
+    "build_model", "build_scratch_model", "build_pretrained_model",
+    "FastRCNNSelectiveSearch", "RCNNSelectiveSearch",
+]

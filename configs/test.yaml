@@ -1,0 +1,13 @@
+# DETRAC Test inference and detection metric settings.
+dataset_root: dataset/DETRAC
+# Null selects the model-specific default, or pass --checkpoint via main.py.
+checkpoint: null
+output_dir: null
+device: auto
+batch_size: 1
+num_workers: 2
+
+# Keep predictions from 0.05 for downstream trackers; report P/R at 0.5.
+save_score_threshold: 0.05
+metric_score_threshold: 0.5
+iou_threshold: 0.5

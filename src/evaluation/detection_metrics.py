@@ -1,6 +1,7 @@
-"""Precision, recall and AP@50 for Faster R-CNN style predictions.
-"""
+"""Precision, recall and AP@50 for Faster R-CNN style predictions."""
 from __future__ import annotations
+
+from collections import defaultdict
 
 import torch
 from torchvision.ops import box_iou
@@ -22,62 +23,96 @@ def _ap101(tp, fp, n_gt):
                for r in torch.linspace(0, 1, 101)) / 101
 
 
+class DetectionMetricAccumulator:
+    """Incrementally calculate dataset-level precision, recall and AP@50.
+
+    ``update`` accepts one image at a time, allowing full-dataset inference to
+    calculate metrics without retaining every image's predictions in memory.
+    """
+
+    def __init__(self, iou_threshold=0.5, score_threshold=0.5):
+        if not 0 <= iou_threshold <= 1 or not 0 <= score_threshold <= 1:
+            raise ValueError("IoU and score thresholds must be between 0 and 1")
+        self.iou_threshold = float(iou_threshold)
+        self.score_threshold = float(score_threshold)
+        self.gt_count = defaultdict(int)
+        self.scores_by_class = defaultdict(list)
+        self.tp_by_class = defaultdict(list)
+        self.gt_total = 0
+        self.pred_count = 0
+        self.tp_count = 0
+
+    def update(self, prediction, target):
+        pb = _tensor(prediction["boxes"], torch.float32)
+        pl = _tensor(prediction["labels"], torch.int64)
+        ps = _tensor(prediction["scores"], torch.float32)
+        gb = _tensor(target["boxes"], torch.float32)
+        gl = _tensor(target["labels"], torch.int64)
+        if len(pb) != len(pl) or len(pb) != len(ps) or len(gb) != len(gl):
+            raise ValueError("boxes, labels and scores must have matching lengths")
+
+        self.gt_total += sum(int(label > 0) for label in gl.tolist())
+        self.pred_count += sum(int(score >= self.score_threshold and label > 0)
+                               for score, label in zip(ps.tolist(), pl.tolist()))
+        for label in gl.tolist():
+            if label > 0:
+                self.gt_count[label] += 1
+
+        classes = {int(label) for label in gl.tolist() if label > 0}
+        classes.update(int(label) for label in pl.tolist() if label > 0)
+        for cls in classes:
+            pred_indices = torch.where(pl == cls)[0]
+            if len(pred_indices):
+                pred_indices = pred_indices[torch.argsort(ps[pred_indices], descending=True)]
+            gt_indices = torch.where(gl == cls)[0]
+            used_gt = set()
+            overlaps = box_iou(pb[pred_indices], gb[gt_indices]) if len(pred_indices) and len(gt_indices) else None
+
+            for rank, pred_index in enumerate(pred_indices.tolist()):
+                best = None
+                if overlaps is not None:
+                    order = torch.argsort(overlaps[rank], descending=True)
+                    best = next((int(gt_indices[k]) for k in order
+                                 if float(overlaps[rank, k]) >= self.iou_threshold
+                                 and int(gt_indices[k]) not in used_gt), None)
+                is_tp = best is not None
+                if is_tp:
+                    used_gt.add(best)
+                    if float(ps[pred_index]) >= self.score_threshold:
+                        self.tp_count += 1
+                self.scores_by_class[cls].append(float(ps[pred_index]))
+                self.tp_by_class[cls].append(is_tp)
+
+    def compute(self):
+        ap_by_class = {}
+        for cls, n_gt in sorted(self.gt_count.items()):
+            indices = sorted(range(len(self.scores_by_class[cls])),
+                             key=lambda idx: self.scores_by_class[cls][idx], reverse=True)
+            tp = torch.tensor([self.tp_by_class[cls][idx] for idx in indices], dtype=torch.float32)
+            fp = 1 - tp
+            ap = _ap101(tp, fp, n_gt)
+            if ap is not None:
+                ap_by_class[cls] = ap
+
+        fp_count = self.pred_count - self.tp_count
+        fn_count = self.gt_total - self.tp_count
+        return {
+            "precision": self.tp_count / (self.tp_count + fp_count)
+            if self.tp_count + fp_count else 0.0,
+            "recall": self.tp_count / self.gt_total if self.gt_total else 0.0,
+            "map50": sum(ap_by_class.values()) / len(ap_by_class) if ap_by_class else 0.0,
+            "ap50_per_class": ap_by_class,
+            "tp": self.tp_count,
+            "fp": fp_count,
+            "fn": fn_count,
+        }
+
+
 def evaluate_detection(predictions, targets, iou_threshold=0.5, score_threshold=0.5):
     """Return micro precision/recall at score_threshold and class-macro AP@50."""
     if len(predictions) != len(targets):
         raise ValueError("predictions and targets must have the same number of images")
-    pred = []
-    gt_count = {}
-    for image_idx, (p, t) in enumerate(zip(predictions, targets)):
-        pb, pl = _tensor(p["boxes"], torch.float32), _tensor(p["labels"], torch.int64)
-        ps = _tensor(p["scores"], torch.float32)
-        gb, gl = _tensor(t["boxes"], torch.float32), _tensor(t["labels"], torch.int64)
-        if len(pb) != len(pl) or len(pb) != len(ps) or len(gb) != len(gl):
-            raise ValueError("boxes, labels and scores must have matching lengths")
-        for c in gl.tolist():
-            if c > 0:
-                gt_count[c] = gt_count.get(c, 0) + 1
-        for j, score in enumerate(ps.tolist()):
-            if pl[j].item() > 0:
-                pred.append((score, image_idx, int(pl[j]), pb[j]))
-
-    matched = [set() for _ in targets]
-    tp_all = fp_all = 0
-    ap_by_class = {}
-    for cls in sorted(set(gt_count) | {r[2] for r in pred}):
-        rows = sorted((r for r in pred if r[2] == cls), key=lambda r: -r[0])
-        class_matches = [set() for _ in targets]
-        tps, fps = [], []
-        for score, image_idx, _, box in rows:
-            gt_boxes = _tensor(targets[image_idx]["boxes"], torch.float32)
-            gt_labels = _tensor(targets[image_idx]["labels"], torch.int64)
-            indices = torch.where(gt_labels == cls)[0]
-            if len(indices):
-                overlaps = box_iou(box.reshape(1, 4), gt_boxes[indices])[0]
-                order = torch.argsort(overlaps, descending=True)
-                best = next((int(indices[k]) for k in order if float(overlaps[k]) >= iou_threshold
-                             and int(indices[k]) not in class_matches[image_idx]), None)
-            else:
-                best = None
-            is_tp = best is not None
-            tps.append(float(is_tp)); fps.append(float(not is_tp))
-            if is_tp:
-                class_matches[image_idx].add(best)
-                if score >= score_threshold:
-                    matched[image_idx].add((cls, best))
-        ap = _ap101(torch.tensor(tps), torch.tensor(fps), gt_count.get(cls, 0))
-        if ap is not None:
-            ap_by_class[cls] = ap
-
-    tp_all = sum(len(x) for x in matched)
-    pred_count = sum(1 for score, *_ in pred if score >= score_threshold)
-    gt_total = sum(gt_count.values())
-    fp_all, fn_all = pred_count - tp_all, gt_total - tp_all
-    
-    return {
-        "precision": tp_all / (tp_all + fp_all) if tp_all + fp_all else 0.0,
-        "recall": tp_all / gt_total if gt_total else 0.0,
-        "map50": sum(ap_by_class.values()) / len(ap_by_class) if ap_by_class else 0.0,
-        "ap50_per_class": ap_by_class,
-        "tp": tp_all, "fp": fp_all, "fn": fn_all,
-    }
+    accumulator = DetectionMetricAccumulator(iou_threshold, score_threshold)
+    for prediction, target in zip(predictions, targets):
+        accumulator.update(prediction, target)
+    return accumulator.compute()

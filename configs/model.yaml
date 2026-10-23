@@ -1,4 +1,5 @@
 # Model architecture and inference settings.
+# Choices: fasterrcnn_resnet50_fpn, fast_rcnn, rcnn.
 architecture: fasterrcnn_resnet50_fpn
 
 # These should match the foreground classes in configs/dataset.yaml.
@@ -6,7 +7,8 @@ architecture: fasterrcnn_resnet50_fpn
 class_names: [car, van, bus, others]
 num_classes: null
 
-# Choose "scratch" to initialize randomly or "pretrained" to start from COCO.
+# Faster R-CNN uses COCO weights; Fast R-CNN / R-CNN use ImageNet ResNet-50.
+# Choose "scratch" to initialize randomly or "pretrained" for these weights.
 initialization: scratch
 pretrained_weights: DEFAULT
 freeze_backbone: false
@@ -16,3 +18,13 @@ nms_threshold: 0.5
 box_detections_per_img: 100
 min_size: 800
 max_size: 1333
+
+# Fast R-CNN / R-CNN use OpenCV Selective Search external region proposals.
+selective_search_mode: fast
+selective_search_max_proposals: 1000
+selective_search_cache_dir: outputs/selective_search_cache
+roi_batch_size: 128
+positive_fraction: 0.25
+roi_pool_size: 7
+rcnn_roi_batch_size: 32
+rcnn_crop_batch_size: 16

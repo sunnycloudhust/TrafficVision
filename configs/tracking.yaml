@@ -1,0 +1,14 @@
+# Track previously exported detector predictions on DETRAC Test.
+tracker: sort # sort | bytetrack | botsort | ocsort
+dataset_root: dataset/DETRAC
+detections_dir: outputs/evaluation_faster_rcnn/detections
+output_dir: outputs/tracking
+minimum_score: 0.05
+iou_threshold: 0.5
+tracker_options:
+  max_age: 30
+  min_hits: 2
+  iou_threshold: 0.2
+  high_threshold: 0.5
+  low_threshold: 0.1
+  appearance_weight: 0.25
