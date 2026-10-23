@@ -1,9 +1,16 @@
+# Model architecture and inference settings.
 architecture: fasterrcnn_resnet50_fpn
-num_classes: null # derived from class_names, plus background
+
+# These should match the foreground classes in configs/dataset.yaml.
+# The model adds the background class automatically, so num_classes is derived.
 class_names: [car, van, bus, others]
-initialization: scratch # scratch | pretrained
+num_classes: null
+
+# Choose "scratch" to initialize randomly or "pretrained" to start from COCO.
+initialization: scratch
 pretrained_weights: DEFAULT
 freeze_backbone: false
+
 score_threshold: 0.05
 nms_threshold: 0.5
 box_detections_per_img: 100

@@ -7,8 +7,10 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 
 def build_pretrained_model(config: dict):
     """Retain COCO backbone/RPN/box feature weights; replace the classifier head."""
+    
     weights_name = config.get("pretrained_weights", "DEFAULT")
     weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT if weights_name == "DEFAULT" else getattr(FasterRCNN_ResNet50_FPN_Weights, weights_name)
+    
     model = fasterrcnn_resnet50_fpn(
         weights=weights,
         box_score_thresh=float(config.get("score_threshold", 0.05)),
