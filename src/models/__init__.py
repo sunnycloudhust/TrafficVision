@@ -3,7 +3,7 @@ from .faster_rcnn_custom import build_scratch_model
 from .faster_rcnn_pretrained import build_pretrained_model
 
 
-def build_model(config: dict, seed: int = 42):
+def build_model(config: dict):
     names = config.get("class_names", [])
     if not names or len(names) != len(set(names)):
         raise ValueError("class_names must contain unique foreground class names")
@@ -15,9 +15,10 @@ def build_model(config: dict, seed: int = 42):
     configured_count = config.get("num_classes")
     if configured_count is not None and int(configured_count) != len(names) + 1:
         raise ValueError("num_classes must include one background class in addition to class_names")
+    
     init = config.get("initialization", "scratch")
     if init == "scratch":
-        return build_scratch_model(config, seed)
+        return build_scratch_model(config)
     if init == "pretrained":
         return build_pretrained_model(config)
     raise ValueError("initialization must be 'scratch' or 'pretrained'")
