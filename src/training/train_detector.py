@@ -6,45 +6,24 @@ import random
 from pathlib import Path
 
 import torch
-import yaml
 from torch.utils.data import DataLoader
 
 from src.data import DETRACDataset, detection_collate_fn
 from src.models import build_model
-
-
-def _load_yaml(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as stream:
-        value = yaml.safe_load(stream)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected a YAML mapping in {path}")
-    return value
-
-
-def _resolve_device(requested: str) -> torch.device:
-    if requested != "auto":
-        device = torch.device(requested)
-        if device.type == "cuda" and not torch.cuda.is_available():
-            raise RuntimeError("CUDA was requested but is not available")
-        if device.type == "mps" and not torch.backends.mps.is_available():
-            raise RuntimeError("MPS was requested but is not available")
-        return device
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
+from src.utils import ensure_dir, load_yaml, project_path, resolve_device
 
 
 def _mean_loss(model, loader, device: torch.device, optimizer=None) -> float:
     training = optimizer is not None
     # Torchvision detectors and the custom region-based models return loss
     # dictionaries in train mode. Validation disables gradients and optimizer steps.
+    
     model.train()
     if not training:
         for module in model.modules():
             if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
                 module.eval()
+    
     total_loss = 0.0
     total_batches = 0
 
@@ -73,15 +52,12 @@ def _mean_loss(model, loader, device: torch.device, optimizer=None) -> float:
 
 
 def train(config_path: Path, *, architecture=None, initialization=None, output_dir=None) -> Path:
-    config = _load_yaml(config_path)
-    project_root = Path(__file__).resolve().parents[2]
-    dataset_root = Path(config.get("dataset_root", "dataset/DETRAC"))
-    if not dataset_root.is_absolute():
-        dataset_root = project_root / dataset_root
-    model_config_path = Path(config.get("model_config", "configs/model.yaml"))
-    if not model_config_path.is_absolute():
-        model_config_path = project_root / model_config_path
-    model_config = _load_yaml(model_config_path)
+    
+    #Load some configs from train.yaml: dataset dir, model config,..
+    config = load_yaml(config_path)
+    dataset_root = project_path(config.get("dataset_root", "dataset/DETRAC"))
+    model_config_path = project_path(config.get("model_config", "configs/model.yaml"))
+    model_config = load_yaml(model_config_path)
     architecture = architecture or config.get("architecture")
     if architecture:
         model_config["architecture"] = architecture
@@ -89,20 +65,23 @@ def train(config_path: Path, *, architecture=None, initialization=None, output_d
     if initialization:
         model_config["initialization"] = initialization
     architecture = model_config.get("architecture", "fasterrcnn_resnet50_fpn")
+    
     model_name = {
         "fasterrcnn_resnet50_fpn": "faster_rcnn",
         "fast_rcnn": "fast_rcnn",
         "rcnn": "rcnn",
     }.get(architecture)
+    
     if model_name is None:
         raise ValueError(f"Unsupported model architecture: {architecture}")
-    selected_output_dir = output_dir or config.get("output_dir") or f"outputs/detrac_{model_name}"
-    selected_output_dir = Path(selected_output_dir)
-    if not selected_output_dir.is_absolute():
-        selected_output_dir = project_root / selected_output_dir
-    selected_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    initialization = model_config.get("initialization", "scratch")
+    selected_output_dir = output_dir or config.get("output_dir") or \
+        f"outputs/detrac_{model_name}_{initialization}"
+    
+    selected_output_dir = ensure_dir(project_path(selected_output_dir))
+    
     class_names = model_config["class_names"]
-
     seed = int(config.get("seed", 42))
     random.seed(seed)
     torch.manual_seed(seed)
@@ -112,22 +91,26 @@ def train(config_path: Path, *, architecture=None, initialization=None, output_d
     dataset = DETRACDataset(root=dataset_root, split="train", class_names=class_names)
     all_sequences = sorted({record["sequence"] for record in dataset.records})
     val_fraction = float(config.get("validation_fraction", 0.15))
+    
     if not 0 < val_fraction < 1:
         raise ValueError("validation_fraction must be between 0 and 1")
+    
     shuffled_sequences = all_sequences.copy()
     random.Random(seed).shuffle(shuffled_sequences)
+    
     val_count = min(max(1, round(len(shuffled_sequences) * val_fraction)), len(shuffled_sequences) - 1)
     val_sequences = set(shuffled_sequences[:val_count])
     train_sequences = set(shuffled_sequences[val_count:])
+    
     train_indices = [i for i, record in enumerate(dataset.records) if record["sequence"] in train_sequences]
     val_indices = [i for i, record in enumerate(dataset.records) if record["sequence"] in val_sequences]
     train_subset = torch.utils.data.Subset(dataset, train_indices)
     val_subset = torch.utils.data.Subset(dataset, val_indices)
 
-    device = _resolve_device(str(config.get("device", "auto")))
+    device = resolve_device(str(config.get("device", "auto")))
     workers = int(config.get("num_workers", 4))
     loader_options = {
-        "batch_size": int(config.get("batch_size", 2)),
+        "batch_size": int(config.get("batch_size", 32)),
         "num_workers": workers,
         "collate_fn": detection_collate_fn,
         "pin_memory": bool(config.get("pin_memory", True)) and device.type == "cuda",
@@ -188,7 +171,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/train.yaml"))
     args = parser.parse_args()
-    train(args.config.resolve())
+    train(project_path(args.config))
 
 
 if __name__ == "__main__":
