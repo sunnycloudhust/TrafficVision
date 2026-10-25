@@ -19,36 +19,44 @@ def build_parser() -> argparse.ArgumentParser:
         description="Train, evaluate and track DETRAC vehicle detections."
     )
     parser.add_argument(
-        "--command",
+        "command",
+        nargs="?",
         choices=("models", "trackers", "train", "evaluate", "track", "track-all"),
-        help="Command to run."
-        )
+        help="Command to run.",
+    )
+    parser.add_argument(
+        "--command",
+        dest="command_flag",
+        choices=("models", "trackers", "train", "evaluate", "track", "track-all"),
+        help="Command to run (flag form).",
+    )
     parser.add_argument(
         "--model", 
         choices=tuple(MODEL_ARCHITECTURES), help="Detector architecture to use."
-        )
+    )
     parser.add_argument(
         "--initialization", choices=("scratch", "pretrained")
-        )
+    )
     parser.add_argument(
         "--tracker", choices=("sort", "bytetrack", "botsort", "ocsort"),
         help="Tracking algorithm to use with --track.",
-        )
+    )
     
     return parser
 
 
 def main(argv=None) -> None:
     args = build_parser().parse_args(argv)
+    command = args.command or args.command_flag
 
-    if args.command == "models":
+    if command == "models":
         print("Supported detector models:")
         print("  faster_rcnn  - Faster R-CNN ResNet-50-FPN (RPN proposals)")
         print("  fast_rcnn    - Fast R-CNN with Selective Search proposals")
         print("  rcnn         - R-CNN with independent region crops and Selective Search")
         return
 
-    if args.command == "trackers":
+    if command == "trackers":
         print("Supported trackers:")
         print("  sort      - constant-velocity motion and IoU association")
         print("  bytetrack - high/low confidence two-pass association")
@@ -56,17 +64,17 @@ def main(argv=None) -> None:
         print("  ocsort    - observation-centric direction association")
         return
 
-    if args.command == "track":
+    if command == "track":
         from src.tracking.run_tracking import run as run_tracking
         run_tracking(TRACKING_CONFIG, tracker_override=args.tracker)
         return
 
-    if args.command == "track-all":
+    if command == "track-all":
         from src.tracking.run_tracking import run_all
         run_all(TRACKING_CONFIG)
         return
 
-    if args.command == "train":
+    if command == "train":
         from src.training.train_detector import train as train_detector
 
         checkpoint = train_detector(
@@ -77,7 +85,7 @@ def main(argv=None) -> None:
         print(f"Best checkpoint: {checkpoint}")
         return
 
-    if args.command == "evaluate":
+    if command == "evaluate":
         from src.evaluation.evaluate_detector import run as evaluate_detector
 
         model_name = args.model or "faster_rcnn"
@@ -90,6 +98,7 @@ def main(argv=None) -> None:
             expected_architecture=expected_architecture,
         )
         return
+
 
 if __name__ == "__main__":
     main()

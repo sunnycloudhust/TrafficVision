@@ -14,7 +14,7 @@ seed: 42
 epochs: 3
 batch_size: 2
 max_frames_per_sequence: 50
-num_workers: 4
+num_workers: 0
 learning_rate: 0.005
 momentum: 0.9
 weight_decay: 0.0005
@@ -23,7 +23,7 @@ lr_gamma: 0.1
 
 # "auto" selects CUDA, then Apple Silicon MPS, then CPU.
 device: auto
-pin_memory: true
+pin_memory: false
 
 # Override model.yaml for training. Pretraining uses COCO for Faster R-CNN and
 # ImageNet ResNet-50 for Fast R-CNN / R-CNN; "scratch" starts randomly.
