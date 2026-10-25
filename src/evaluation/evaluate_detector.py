@@ -7,56 +7,25 @@ import json
 from pathlib import Path
 
 import torch
-import yaml
 from torch.utils.data import DataLoader
 
 from src.data import DETRACDataset, detection_collate_fn
 from src.evaluation import DetectionMetricAccumulator
 from src.models import build_model
-
-
-def _load_yaml(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as stream:
-        value = yaml.safe_load(stream)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected a YAML mapping in {path}")
-    return value
-
-
-def _resolve_device(requested: str) -> torch.device:
-    if requested != "auto":
-        device = torch.device(requested)
-        if device.type == "cuda" and not torch.cuda.is_available():
-            raise RuntimeError("CUDA was requested but is not available")
-        if device.type == "mps" and not torch.backends.mps.is_available():
-            raise RuntimeError("MPS was requested but is not available")
-        return device
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
+from src.utils import ensure_dir, load_yaml, project_path, resolve_device
 
 
 def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None,
         expected_architecture=None) -> dict:
-    config = _load_yaml(config_path)
-    project_root = Path(__file__).resolve().parents[2]
-
-    def resolve_path(key: str, default: str) -> Path:
-        path = Path(config.get(key, default))
-        return path if path.is_absolute() else project_root / path
-
-    dataset_root = resolve_path("dataset_root", "dataset/DETRAC")
+    config = load_yaml(config_path)
+    dataset_root = project_path(config.get("dataset_root", "dataset/DETRAC"))
     configured_checkpoint = checkpoint_override or config.get("checkpoint") or \
-        "outputs/detrac_faster_rcnn/best.pth"
-    checkpoint_path = Path(configured_checkpoint)
-    if not checkpoint_path.is_absolute():
-        checkpoint_path = project_root / checkpoint_path
+        "outputs/detrac_faster_rcnn_pretrained/best.pth"
+    checkpoint_path = project_path(configured_checkpoint)
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}. Train the detector first.")
 
-    device = _resolve_device(str(config.get("device", "auto")))
+    device = resolve_device(str(config.get("device", "auto")))
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model_config = dict(checkpoint["model_config"])
     class_names = checkpoint["class_names"]
@@ -72,14 +41,13 @@ def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None
     }.get(architecture)
     if model_name is None:
         raise ValueError(f"Unsupported checkpoint architecture: {architecture}")
+    initialization = checkpoint.get("model_config", {}).get("initialization", "scratch")
     configured_output = output_dir_override or config.get("output_dir")
     if configured_output:
-        output_dir = Path(configured_output)
-        if not output_dir.is_absolute():
-            output_dir = project_root / output_dir
+        output_dir = project_path(configured_output)
     else:
-        output_dir = project_root / f"outputs/evaluation_{model_name}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = project_path(f"outputs/evaluation_{model_name}_{initialization}")
+    ensure_dir(output_dir)
     # Build the architecture without downloading initialization weights; the
     # trained checkpoint immediately supplies every parameter.
     model_config["initialization"] = "scratch"
@@ -103,8 +71,7 @@ def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None
         iou_threshold=float(config.get("iou_threshold", 0.5)),
         score_threshold=float(config.get("metric_score_threshold", 0.5)),
     )
-    detection_dir = output_dir / "detections"
-    detection_dir.mkdir(parents=True, exist_ok=True)
+    detection_dir = ensure_dir(output_dir / "detections")
     open_files = {}
     writers = {}
     try:
@@ -174,7 +141,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/test.yaml"))
     args = parser.parse_args()
-    run(args.config.resolve())
+    run(project_path(args.config))
 
 
 if __name__ == "__main__":

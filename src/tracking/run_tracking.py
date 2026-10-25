@@ -8,38 +8,24 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import yaml
 from PIL import Image
 
 from src.data import DETRACDataset
 from src.evaluation.tracking_metrics import evaluate_tracking
+from src.utils import ensure_dir, ensure_parent_dir, load_yaml, project_path
 from .trackers import build_tracker
-
-
-def _read_config(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as stream:
-        config = yaml.safe_load(stream)
-    if not isinstance(config, dict):
-        raise ValueError(f"Expected a YAML mapping in {path}")
-    return config
 
 
 def run(config_path: Path, *, tracker_override=None, detections_dir_override=None,
         output_dir_override=None) -> dict:
-    config = _read_config(config_path)
-    root = Path(__file__).resolve().parents[2]
-
-    def resolve(value):
-        path = Path(value)
-        return path if path.is_absolute() else root / path
+    config = load_yaml(config_path)
 
     tracker_name = (tracker_override or config.get("tracker", "sort")).lower()
-    detections_dir = resolve(detections_dir_override or config.get(
-        "detections_dir", "outputs/evaluation_faster_rcnn/detections"))
-    dataset_root = resolve(config.get("dataset_root", "dataset/DETRAC"))
-    output_root = resolve(output_dir_override or config.get("output_dir", "outputs/tracking"))
-    output_dir = output_root / tracker_name
-    output_dir.mkdir(parents=True, exist_ok=True)
+    detections_dir = project_path(detections_dir_override or config.get(
+        "detections_dir", "outputs/evaluation_faster_rcnn_pretrained/detections"))
+    dataset_root = project_path(config.get("dataset_root", "dataset/DETRAC"))
+    output_root = project_path(output_dir_override or config.get("output_dir", "outputs/tracking"))
+    output_dir = ensure_dir(output_root / tracker_name)
     dataset = DETRACDataset(root=dataset_root, split="test", include_empty=True)
 
     records_by_sequence = defaultdict(list)
@@ -137,11 +123,8 @@ def run_all(config_path: Path, *, detections_dir_override=None, output_dir_overr
             detections_dir_override=detections_dir_override,
             output_dir_override=output_dir_override,
         )
-    root = Path(__file__).resolve().parents[2]
-    config = _read_config(config_path)
-    base_dir = Path(output_dir_override or config.get("output_dir", "outputs/tracking"))
-    if not base_dir.is_absolute():
-        base_dir = root / base_dir
+    config = load_yaml(config_path)
+    base_dir = project_path(output_dir_override or config.get("output_dir", "outputs/tracking"))
     comparison = {
         "metric_note": "Unweighted sequence macro averages; compare within this dataset and setup.",
         "trackers": {
@@ -151,6 +134,7 @@ def run_all(config_path: Path, *, detections_dir_override=None, output_dir_overr
         },
     }
     comparison_path = base_dir / "comparison.json"
+    ensure_parent_dir(comparison_path)
     comparison_path.write_text(json.dumps(comparison, indent=2), encoding="utf-8")
     print(f"Comparison: {comparison_path}")
     return comparison
@@ -163,7 +147,7 @@ def main():
     parser.add_argument("--detections-dir", type=Path)
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    run(args.config.resolve(), tracker_override=args.tracker,
+    run(project_path(args.config), tracker_override=args.tracker,
         detections_dir_override=args.detections_dir, output_dir_override=args.output_dir)
 
 

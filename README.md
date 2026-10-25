@@ -27,6 +27,14 @@ The DETRAC dataset should be under `dataset/DETRAC/`. Training uses the 60
 annotated train sequences and holds out whole sequences for validation. The 40
 test sequences are reserved for final evaluation.
 
+The default quick-training profile samples up to 50 evenly spaced frames from
+each training sequence and runs 3 epochs. This reduces the training workload
+from about 82,000 frames per epoch to about 3,000 sampled train/validation
+frames per epoch without deleting or copying the source dataset. It is intended
+to fit within roughly 4 hours on a Tesla T4; actual time depends on the runtime,
+image storage speed, and GPU load. Set `max_frames_per_sequence` to `null` and
+adjust `epochs` in `configs/train.yaml` to use the full dataset.
+
 ## Commands
 
 List the supported detector names:
@@ -40,43 +48,49 @@ Initialization can be `pretrained` or `scratch`.
 
 ```bash
 python main.py train --model faster_rcnn --initialization pretrained
+python main.py train --model faster_rcnn --initialization scratch
 python main.py train --model fast_rcnn --initialization pretrained
 python main.py train --model rcnn --initialization pretrained
 ```
 
-Run training and DETRAC Test evaluation in sequence:
+Run the four detector experiments, evaluate each one, then compare all
+trackers on the default Faster R-CNN pretrained detections:
 
 ```bash
-python main.py pipeline --model fast_rcnn --initialization pretrained
+bash run_experiments.sh
 ```
 
-Evaluate a previously trained model. The model name selects its default
-checkpoint; `--checkpoint` can point to a different one.
+Evaluate a previously trained model. Select the same initialization used
+during training so the matching checkpoint is loaded.
 
 ```bash
-python main.py evaluate --model faster_rcnn
-python main.py evaluate --model fast_rcnn
-python main.py evaluate --checkpoint outputs/detrac_rcnn/best.pth --model rcnn
+python main.py evaluate --model faster_rcnn --initialization pretrained
+python main.py evaluate --model faster_rcnn --initialization scratch
+python main.py evaluate --model fast_rcnn --initialization pretrained
+python main.py evaluate --model rcnn --initialization pretrained
 ```
 
 Options such as epochs, batch size, device, validation split, score thresholds,
 and paths are in `configs/train.yaml`, `configs/test.yaml`, and
 `configs/model.yaml`. Command-line values override the corresponding config
-values. Training checkpoints are stored in model-specific directories under
-`outputs/`; evaluation writes per-sequence detection CSVs and `metrics.json`.
+values. Training checkpoints are stored in directories named by model and
+initialization, such as `outputs/detrac_faster_rcnn_scratch/`. Evaluation
+writes to matching `outputs/evaluation_<model>_<initialization>/` directories
+with per-sequence detection CSVs and `metrics.json`.
 
 ## Tracking
 
 First evaluate a trained detector on DETRAC Test. This exports per-sequence
-detection CSV files to `outputs/evaluation_<model>/detections/`. Then run one
-tracker against those detections:
+detection CSV files to `outputs/evaluation_<model>_<initialization>/detections/`.
+The tracking config points to the pretrained Faster R-CNN results by default.
+Then run one tracker against those detections:
 
 ```bash
-python main.py track --tracker sort --detections-dir outputs/evaluation_faster_rcnn/detections
-python main.py track --tracker bytetrack --detections-dir outputs/evaluation_faster_rcnn/detections
-python main.py track --tracker botsort --detections-dir outputs/evaluation_faster_rcnn/detections
-python main.py track --tracker ocsort --detections-dir outputs/evaluation_faster_rcnn/detections
-python main.py track-all --detections-dir outputs/evaluation_faster_rcnn/detections
+python main.py track --tracker sort
+python main.py track --tracker bytetrack
+python main.py track --tracker botsort
+python main.py track --tracker ocsort
+python main.py track-all
 ```
 
 The selected tracker can also be set in `configs/tracking.yaml`. Tracker

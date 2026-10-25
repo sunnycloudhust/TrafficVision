@@ -90,7 +90,12 @@ def train(config_path: Path, *, architecture=None, initialization=None, output_d
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-    dataset = DETRACDataset(root=dataset_root, split="train", class_names=class_names)
+    dataset = DETRACDataset(
+        root=dataset_root,
+        split="train",
+        class_names=class_names,
+        max_frames_per_sequence=config.get("max_frames_per_sequence"),
+    )
     all_sequences = sorted({record["sequence"] for record in dataset.records})
     val_fraction = float(config.get("validation_fraction", 0.15))
 

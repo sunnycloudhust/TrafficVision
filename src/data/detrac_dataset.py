@@ -11,9 +11,11 @@ from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor
 from torch.utils.data import Dataset
 
+from src.utils import project_path
+
 
 DEFAULT_CLASS_NAMES = ("car", "van", "bus", "others")
-DEFAULT_DATASET_ROOT = Path(__file__).resolve().parents[2] / "dataset" / "DETRAC"
+DEFAULT_DATASET_ROOT = project_path("dataset/DETRAC")
 
 
 @dataclass(frozen=True)
@@ -151,6 +153,7 @@ class DETRACDataset(Dataset):
             preserved, and frames within each sequence are ordered by XML frame
             number.
         include_empty: Include frames that contain no targets.
+        max_frames_per_sequence: Optional deterministic temporal sampling limit.
     """
 
     _SPLIT_DIRS = {
@@ -166,12 +169,16 @@ class DETRACDataset(Dataset):
         class_names: tuple[str, ...] | list[str] = DEFAULT_CLASS_NAMES,
         sequences: list[str] | tuple[str, ...] | None = None,
         include_empty: bool = True,
+        max_frames_per_sequence: int | None = None,
     ) -> None:
         self._validate_inputs(split, class_names)
         self.root = Path(root)
         self.split = split
         self.class_names = tuple(class_names)
         self.include_empty = include_empty
+        if max_frames_per_sequence is not None and max_frames_per_sequence < 1:
+            raise ValueError("max_frames_per_sequence must be at least 1")
+        self.max_frames_per_sequence = max_frames_per_sequence
 
         self.image_root, self.annotation_root = self._resolve_directories(self.root, split)
         sequence_map = self._resolve_sequences(self.annotation_root, sequences, split)
@@ -215,7 +222,18 @@ class DETRACDataset(Dataset):
                 class_names=self.class_names,
                 include_empty=self.include_empty,
             )
-            records.extend(parser.parse())
+            sequence_records = parser.parse()
+            # Keep a deterministic, evenly spaced temporal sample for quick runs.
+            # Sampling here leaves the original images and annotations untouched.
+            limit = self.max_frames_per_sequence
+            if limit is not None and len(sequence_records) > limit:
+                if limit == 1:
+                    indices = [len(sequence_records) // 2]
+                else:
+                    indices = [round(i * (len(sequence_records) - 1) / (limit - 1))
+                               for i in range(limit)]
+                sequence_records = [sequence_records[index] for index in indices]
+            records.extend(sequence_records)
         return records
 
     def __len__(self) -> int:

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from pathlib import Path
 
 import torch
 from torch import nn
@@ -11,6 +10,7 @@ from torchvision.models import ResNet50_Weights, resnet50
 from torchvision.ops import box_iou, nms, roi_align
 
 from .selective_search import SelectiveSearchProposer
+from src.utils import project_path
 
 
 _IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -276,9 +276,7 @@ class RCNNSelectiveSearch(nn.Module):
 def _make_proposer(config):
     cache_dir = config.get("selective_search_cache_dir", "outputs/selective_search_cache")
     if cache_dir:
-        cache_dir = Path(cache_dir)
-        if not cache_dir.is_absolute():
-            cache_dir = Path(__file__).resolve().parents[2] / cache_dir
+        cache_dir = project_path(cache_dir)
     return SelectiveSearchProposer(
         cache_dir=cache_dir,
         max_proposals=config.get("selective_search_max_proposals", 1000),

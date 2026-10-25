@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from src.utils import ensure_parent_dir
+
 
 class SelectiveSearchProposer:
     def __init__(self, cache_dir, max_proposals=1000, mode="fast"):
@@ -66,7 +68,7 @@ class SelectiveSearchProposer:
             boxes = [(0, 0, width, height)]
         result = np.asarray(boxes, dtype=np.float32)
         if cache_path is not None:
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            ensure_parent_dir(cache_path)
             temporary_path = cache_path.with_suffix(".tmp.npy")
             np.save(temporary_path, result, allow_pickle=False)
             temporary_path.replace(cache_path)

@@ -11,8 +11,9 @@ architecture: null
 validation_fraction: 0.15
 seed: 42
 
-epochs: 20
+epochs: 3
 batch_size: 2
+max_frames_per_sequence: 50
 num_workers: 4
 learning_rate: 0.005
 momentum: 0.9
