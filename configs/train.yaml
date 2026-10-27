@@ -3,6 +3,10 @@ dataset_root: dataset/DETRAC
 model_config: configs/model.yaml
 # Null selects outputs/detrac_{faster_rcnn|fast_rcnn|rcnn} by architecture.
 output_dir: null
+# Resume automatically from last.pth in the selected output directory.
+resume: true
+# Optional checkpoint path. Null automatically selects last.pth when present.
+resume_from: null
 # Optional architecture override: fasterrcnn_resnet50_fpn, fast_rcnn, or rcnn.
 architecture: null
 

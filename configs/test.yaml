@@ -6,6 +6,8 @@ output_dir: null
 device: auto
 batch_size: 1
 num_workers: 2
+# Stop inference after this many minutes; partial metrics and detections are saved.
+max_runtime_minutes: 15
 
 # Keep predictions from 0.05 for downstream trackers; report P/R at 0.5.
 save_score_threshold: 0.05

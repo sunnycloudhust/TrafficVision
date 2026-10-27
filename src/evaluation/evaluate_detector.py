@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import time
 from pathlib import Path
 
 import torch
@@ -71,6 +72,9 @@ def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None
         iou_threshold=float(config.get("iou_threshold", 0.5)),
         score_threshold=float(config.get("metric_score_threshold", 0.5)),
     )
+    max_runtime_minutes = config.get("max_runtime_minutes", 15)
+    deadline = (time.monotonic() + float(max_runtime_minutes) * 60
+                if max_runtime_minutes is not None else None)
     detection_dir = ensure_dir(output_dir / "detections")
     open_files = {}
     writers = {}
@@ -83,8 +87,14 @@ def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None
             writers[sequence] = writer
 
         frame_number = 0
+        time_limit_reached = False
         with torch.inference_mode():
             for images, targets in loader:
+                # Check between batches so an in-flight model call can finish cleanly.
+                if deadline is not None and time.monotonic() >= deadline:
+                    time_limit_reached = True
+                    print(f"Evaluation time limit reached after {frame_number} frames.")
+                    break
                 device_images = [image.to(device) for image in images]
                 architecture = model_config.get("architecture", "fasterrcnn_resnet50_fpn")
                 if architecture in {"fast_rcnn", "rcnn"}:
@@ -113,6 +123,10 @@ def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None
                     frame_number += 1
                     if frame_number % 1000 == 0:
                         print(f"Processed {frame_number}/{len(dataset)} test frames")
+                if deadline is not None and time.monotonic() >= deadline:
+                    time_limit_reached = True
+                    print(f"Evaluation time limit reached after {frame_number} frames.")
+                    break
     finally:
         for file in open_files.values():
             file.close()
@@ -122,6 +136,10 @@ def run(config_path: Path, *, checkpoint_override=None, output_dir_override=None
         "checkpoint": str(checkpoint_path),
         "test_sequences": len({record["sequence"] for record in dataset.records}),
         "test_frames": frame_number,
+        "time_limit_minutes": (float(max_runtime_minutes)
+                               if max_runtime_minutes is not None else None),
+        "time_limit_reached": time_limit_reached,
+        "partial_evaluation": time_limit_reached,
         "class_names": class_names,
         "iou_threshold": float(config.get("iou_threshold", 0.5)),
         "metric_score_threshold": float(config.get("metric_score_threshold", 0.5)),

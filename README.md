@@ -53,6 +53,13 @@ python main.py train --model fast_rcnn --initialization pretrained
 python main.py train --model rcnn --initialization pretrained
 ```
 
+Training resumes automatically from `last.pth` in the selected output directory
+when it exists. Each invocation runs the configured number of epochs; on resume,
+it counts those epochs from the saved epoch. Use `--fresh` to ignore an existing
+checkpoint and start a new run. Annotated frames whose image files are missing
+are skipped with a warning; the dataset root and sequence directory layout
+still need to be correct.
+
 Run the four detector experiments, evaluate each one, then compare all
 trackers on the default Faster R-CNN pretrained detections:
 

@@ -31,6 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--initialization", choices=("scratch", "pretrained")
         )
     parser.add_argument(
+        "--fresh", action="store_true",
+        help="Start training from initialization instead of resuming a saved checkpoint.",
+        )
+    parser.add_argument(
         "--tracker", choices=("sort", "bytetrack", "botsort", "ocsort"),
         help="Tracking algorithm to use with --track.",
         )
@@ -73,6 +77,7 @@ def main(argv=None) -> None:
             TRAIN_CONFIG,
             architecture=MODEL_ARCHITECTURES.get(args.model) if args.model else None,
             initialization=args.initialization,
+            resume=False if args.fresh else None,
         )
         print(f"Best checkpoint: {checkpoint}")
         return

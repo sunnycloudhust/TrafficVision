@@ -55,6 +55,7 @@ class DETRACAnnotationParser:
         image_dir: str | Path,
         class_names: tuple[str, ...] | list[str] = DEFAULT_CLASS_NAMES,
         include_empty: bool = True,
+        skip_missing_images: bool = True,
     ) -> None:
         self.xml_path = Path(xml_path)
         self.image_dir = Path(image_dir)
@@ -63,6 +64,8 @@ class DETRACAnnotationParser:
             raise ValueError("class_names must contain unique foreground classes")
         self.label_by_name = {name: idx + 1 for idx, name in enumerate(self.class_names)}
         self.include_empty = include_empty
+        self.skip_missing_images = skip_missing_images
+        self.missing_images: list[Path] = []
 
     def parse(self) -> list[FrameRecord]:
         """Read the configured XML and return annotations in XML frame order."""
@@ -87,6 +90,9 @@ class DETRACAnnotationParser:
         frame_number = int(frame.attrib["num"])
         image_path = self.image_dir / f"img{frame_number:05d}.jpg"
         if not image_path.is_file():
+            if self.skip_missing_images:
+                self.missing_images.append(image_path)
+                return None
             raise FileNotFoundError(
                 f"Image for {sequence_name} frame {frame_number} not found: {image_path}"
             )
@@ -179,10 +185,16 @@ class DETRACDataset(Dataset):
         if max_frames_per_sequence is not None and max_frames_per_sequence < 1:
             raise ValueError("max_frames_per_sequence must be at least 1")
         self.max_frames_per_sequence = max_frames_per_sequence
+        self.missing_images: list[Path] = []
 
         self.image_root, self.annotation_root = self._resolve_directories(self.root, split)
         sequence_map = self._resolve_sequences(self.annotation_root, sequences, split)
         self.records: list[FrameRecord] = self._load_records(sequence_map)
+        if not self.records:
+            raise ValueError(
+                f"No usable {split} frames found under {self.root}; check dataset paths "
+                "and confirm the image directories contain the frames referenced by the XML files."
+            )
 
     def _validate_inputs(self, split: str, class_names: tuple[str, ...] | list[str]) -> None:
         if split not in self._SPLIT_DIRS:
@@ -223,6 +235,7 @@ class DETRACDataset(Dataset):
                 include_empty=self.include_empty,
             )
             sequence_records = parser.parse()
+            self.missing_images.extend(parser.missing_images)
             # Keep a deterministic, evenly spaced temporal sample for quick runs.
             # Sampling here leaves the original images and annotations untouched.
             limit = self.max_frames_per_sequence
