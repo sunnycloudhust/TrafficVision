@@ -153,8 +153,7 @@ def train(
         if candidate.is_file():
             resume_path = candidate
 
-    # A full checkpoint contains all model weights, so avoid downloading
-    # pretrained initialization weights when resuming it.
+    # A full checkpoint contains all model weights, so avoid downloading pretrained initialization weights when resuming it.
     build_config = dict(model_config)
     if resume_path is not None:
         build_config["initialization"] = "scratch"
