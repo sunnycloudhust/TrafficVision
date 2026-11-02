@@ -1,0 +1,4 @@
+extends: ../data/ua_detrac.yaml
+training:
+  batch_size: 2
+  workers: 0

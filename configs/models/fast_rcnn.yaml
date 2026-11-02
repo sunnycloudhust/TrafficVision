@@ -1,0 +1,12 @@
+model:
+  name: fast_rcnn
+  init: random
+  params:
+    num_classes: 4
+    backbone: conv
+    channels: 64
+    min_size: 512
+    max_size: 960
+    proposals: 300
+    proposal_strategy: selective_search
+    score_threshold: 0.01

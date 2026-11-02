@@ -1,0 +1,11 @@
+model:
+  name: rtdetr
+  init: random
+  params:
+    num_classes: 4
+    hidden: 64
+    heads: 4
+    queries: 100
+    decoder_layers: 3
+    image_size: 512
+    score_threshold: 0.01

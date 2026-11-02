@@ -1,0 +1,6 @@
+model:
+  name: yolov8
+  init: pretrained
+  weights: yolov8n.pt
+  label_space: coco  # For fine-tuned UA-DETRAC checkpoints change to ua_detrac
+  image_size: 640

@@ -1,0 +1,12 @@
+extends: ../data/ua_detrac.yaml
+seed: 42
+training:
+  output: outputs/experiment
+  epochs: 30
+  batch_size: 2
+  workers: 0
+  device: cpu  # change to cuda on a GPU runtime
+  lr: 0.0001
+  weight_decay: 0.0001
+  lr_step: 10
+  gradient_clip: 10

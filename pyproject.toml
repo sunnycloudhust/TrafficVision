@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trafficvision"
+version = "0.1.0"
+description = "Course project: modular vehicle detection, tracking and calibrated speed"
+requires-python = ">=3.10,<3.13"
+dependencies = ["torch>=2.5,<2.6", "torchvision>=0.20,<0.21", "numpy>=1.26,<2", "scipy>=1.14,<1.15", "opencv-contrib-python-headless==4.10.0.84", "Pillow>=10,<12", "PyYAML>=6,<7", "fsspec[http]>=2024.12,<2025", "huggingface-hub>=0.26,<0.27"]
+
+[project.optional-dependencies]
+train = ["ultralytics==8.3.40", "torchmetrics==1.6.0", "pycocotools==2.0.8", "lapx>=0.5.11,<0.6"]
+tracking-eval = ["trackeval @ https://github.com/JonathonLuiten/TrackEval/archive/12c8791b303e0a0b50f753af204249e622d0281a.zip", "matplotlib>=3.8", "tabulate>=0.9"]
+dev = ["pytest>=8.3,<9", "ruff>=0.8,<0.9"]
+cloud = ["s3fs>=2024.12,<2025", "gcsfs>=2024.12,<2025"]
+gui = ["opencv-contrib-python==4.10.0.84"]
+
+[project.scripts]
+trafficvision = "trafficvision.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110

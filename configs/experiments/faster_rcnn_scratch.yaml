@@ -1,0 +1,3 @@
+extends: [base.yaml, ../models/faster_rcnn.yaml]
+training:
+  output: outputs/faster_rcnn

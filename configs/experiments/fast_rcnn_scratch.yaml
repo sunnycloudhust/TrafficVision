@@ -1,0 +1,4 @@
+extends: [base.yaml, ../models/fast_rcnn.yaml]
+training:
+  output: outputs/fast_rcnn
+  batch_size: 1

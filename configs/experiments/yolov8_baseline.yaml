@@ -1,0 +1,7 @@
+extends: [base.yaml, ../models/yolov8.yaml]
+model:
+  label_space: ua_detrac
+training:
+  output: outputs/yolov8
+  batch_size: 8
+  lr: 0.001
