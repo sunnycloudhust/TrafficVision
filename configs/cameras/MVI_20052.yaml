@@ -1,5 +1,5 @@
-# TEMPLATE ONLY: replace resolution/FPS and calibrate using real measured points.
-camera_id: camera_01
+# TEMPLATE ONLY: calibrate this sequence with measured road points before estimating speed.
+camera_id: MVI_20052
 fps: 25
 frame_size: [960, 540]
 world_unit: meter

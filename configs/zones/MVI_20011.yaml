@@ -1,5 +1,5 @@
 # ILLUSTRATION ONLY: visually verify and redraw for each camera.
-camera_id: camera_01
+camera_id: MVI_20011
 frame_size: [960, 540]
 roi_only: true
 default_threshold: 0.25

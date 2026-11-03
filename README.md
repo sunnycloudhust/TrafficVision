@@ -20,7 +20,7 @@ python -m pip install -e ".[train,tracking-eval,dev]"
 # Ultralytics có thể cài opencv-python; cài contrib cuối để Selective Search có ximgproc.
 python -m pip install --force-reinstall --no-deps opencv-contrib-python-headless==4.10.0.84
 
-python -m trafficvision.cli --help
+python scripts/utils.py --help
 python -m pytest -q
 ```
 
@@ -78,19 +78,19 @@ data:
 Sửa `data.manifest`, `training.device` (`cpu`/`cuda`), batch size và đường dẫn output trong YAML. Tất cả đường dẫn dữ liệu/output tính từ thư mục repo; `extends` tính tương đối với file YAML đang chứa nó.
 
 ```bash
-python -m trafficvision.cli train --model faster_rcnn --init random \
+python scripts/utils.py train --model faster_rcnn --init random \
   --config configs/experiments/faster_rcnn_scratch.yaml
 
-python -m trafficvision.cli train --model fast_rcnn --init random \
+python scripts/utils.py train --model fast_rcnn --init random \
   --config configs/experiments/fast_rcnn_scratch.yaml
 
-python -m trafficvision.cli train --model rcnn --init random \
+python scripts/utils.py train --model rcnn --init random \
   --config configs/experiments/rcnn_scratch.yaml
 
-python -m trafficvision.cli train --model rtdetr --init random \
+python scripts/utils.py train --model rtdetr --init random \
   --config configs/experiments/rtdetr_scratch.yaml
 
-python -m trafficvision.cli train --model yolov8 --init pretrained \
+python scripts/utils.py train --model yolov8 --init pretrained \
   --config configs/experiments/yolov8_baseline.yaml
 ```
 
@@ -99,10 +99,10 @@ Custom detectors tự lắp kiến trúc; mặc định CNN nhỏ train từ ran
 Custom runs lưu `config.yaml`, `metrics.jsonl`, `last.pt`, `best.pt` (chọn theo validation COCO mAP). Checkpoint gồm model params, state, optimizer, scheduler, epoch, seed/config và RNG; resume tại ranh giới epoch:
 
 ```bash
-python -m trafficvision.cli train --config configs/experiments/faster_rcnn_scratch.yaml \
+python scripts/utils.py train --config configs/experiments/faster_rcnn_scratch.yaml \
   --resume outputs/faster_rcnn/last.pt
 
-python -m trafficvision.cli evaluate --model faster_rcnn \
+python scripts/utils.py evaluate --model faster_rcnn \
   --checkpoint outputs/faster_rcnn/best.pt --split test \
   --config configs/evaluation/ua_detrac.yaml --output outputs/evaluation/faster_rcnn.json
 ```
@@ -118,23 +118,24 @@ Tracker config ở `configs/trackers/`: `sort`, `bytetrack`, `botsort`. Đổi t
 Để đo tracking trên **toàn split**, không cần ghép ảnh thành MP4:
 
 ```bash
-python -m trafficvision.cli track-dataset --model faster_rcnn \
+python scripts/utils.py track-dataset --model faster_rcnn \
   --checkpoint outputs/faster_rcnn/best.pt --tracker bytetrack --split test \
   --config configs/evaluation/ua_detrac.yaml --output outputs/evaluation/faster_bytetrack.csv
 ```
 
 Lệnh reset tracker giữa các video, kiểm tra thứ tự frame, xuất trajectories và chạy TrackEval **HOTA, IDF1, MOTA, ID switches, fragments** bằng GT IDs thực. Kết quả theo protocol class-aware của project; không phải leaderboard PR-MOTA chính thức UA-DETRAC. Các metric tỷ lệ lưu theo khoảng 0–1, MOTA có thể âm. Cần chạy đủ video để so sánh.
 
-Polygon mẫu `configs/zones/camera_01.yaml` chưa phải calibration thật. Vẽ lại cho camera rồi chỉnh `frame_size`, `confidence_threshold`, `inference_scale`, `measure_speed`. Dùng bottom-center để gán vùng; crop lượt riêng cho vùng có scale >1 rồi đưa box về frame gốc và NMS theo class. Threshold vùng thấp giữ candidate cho association; `new_track_thresh` vẫn kiểm soát việc sinh ID mới.
+Polygon mẫu `configs/zones/MVI_20011.yaml` chưa phải calibration thật. Vẽ lại cho video rồi chỉnh `frame_size`, `confidence_threshold`, `inference_scale`, `measure_speed`. Dùng bottom-center để gán vùng; crop lượt riêng cho vùng có scale >1 rồi đưa box về frame gốc và NMS theo class. Threshold vùng thấp giữ candidate cho association; `new_track_thresh` vẫn kiểm soát việc sinh ID mới.
 
 ## 5. Phase 4 — Calibration và vận tốc
 
-Chuẩn bị hai JSON cùng thứ tự: `image_points.json` chứa ít nhất 4 điểm ảnh không thẳng hàng trên mặt đường, `world_points.json` chứa tọa độ thực **mét** đã đo. Không tự suy ra khoảng cách thực từ bbox.
+Với mỗi sequence, lưu tọa độ thực đã đo bằng **mét** tại `data/ua_detrac/world_points/world_points_<VIDEO_ID>.json`. Các điểm ảnh và điểm thực phải có cùng thứ tự, gồm ít nhất 4 điểm không thẳng hàng trên mặt đường. Không tự suy ra khoảng cách thực từ bbox.
 
 ```bash
-python scripts/calibrate_camera.py --image /path/to/frame.jpg \
-  --image-points /path/to/image_points.json --world-points /path/to/world_points.json \
-  --camera-id camera_01 --fps 25 --output configs/cameras/camera_01.yaml
+python scripts/calibrate_camera.py \
+  --image data/ua_detrac/raw/DETRAC/DETRAC-Images/DETRAC-Images/MVI_20011/img00001.jpg \
+  --interactive --world-points data/ua_detrac/world_points/world_points_MVI_20011.json \
+  --camera-id MVI_20011 --fps 25 --output configs/cameras/MVI_20011.yaml
 ```
 
 Desktop có OpenCV GUI có thể thay `--image-points` bằng `--interactive`. Colab/headless dùng JSON. Không cài đồng thời nhiều biến thể OpenCV khi muốn dùng GUI; xem hướng dẫn môi trường. Kiểm tra phép chiếu trên điểm độc lập: reprojection thấp ở đúng bốn điểm fit không chứng minh calibration chính xác.
@@ -142,7 +143,7 @@ Desktop có OpenCV GUI có thể thay `--image-points` bằng `--interactive`. C
 Speed estimator hồi quy vị trí thế giới theo timestamp trong cửa sổ, trả `N/A` khi thiếu quan sát, thời gian trùng/ngược, gap dài, bước nhảy quá lớn hoặc chưa có homography. Chỉ dùng quan sát detection hiện tại; không lấy vị trí track dự đoán qua occlusion làm phép đo.
 
 ```bash
-python -m trafficvision.cli evaluate-speed --pairs /path/to/matched_speed_pairs.csv
+python scripts/utils.py evaluate-speed --pairs /path/to/matched_speed_pairs.csv
 ```
 
 CSV cần cặp đã đối chiếu cùng phương tiện/thời gian: `gt_kmh,predicted_kmh`. Chỉ báo cáo MAE/RMSE/MAPE thực khi có GT speed; MAPE bỏ các GT bằng 0.
@@ -150,16 +151,16 @@ CSV cần cặp đã đối chiếu cùng phương tiện/thời gian: `gt_kmh,p
 ## 6. Phase 5 — Video demo
 
 ```bash
-python -m trafficvision.cli demo --source /path/to/traffic.mp4 \
+python scripts/utils.py demo --source /path/to/traffic.mp4 \
   --model faster_rcnn --checkpoint outputs/faster_rcnn/best.pt --tracker bytetrack \
-  --camera-config configs/cameras/camera_01.yaml --zone-config configs/zones/camera_01.yaml \
+  --camera-config configs/cameras/MVI_20011.yaml --zone-config configs/zones/MVI_20011.yaml \
   --output outputs/demo/faster_bytetrack.mp4
 ```
 
 Có thể bỏ camera/zone config để xem detection + tracking, speed `N/A`. Video pretrained chưa fine-tune:
 
 ```bash
-python -m trafficvision.cli demo --source /path/to/traffic.mp4 --model yolov8 \
+python scripts/utils.py demo --source /path/to/traffic.mp4 --model yolov8 \
   --config configs/models/yolov8.yaml --tracker bytetrack --output outputs/demo/yolo_coco.mp4
 ```
 

@@ -1,5 +1,6 @@
-"""Pinned Ultralytics 8.3.40 adapter; one tracker per class prevents cross-class IDs."""
+"""Ultralytics tracker adapter; one tracker per class prevents cross-class IDs."""
 
+import inspect
 from types import SimpleNamespace
 import numpy as np
 from .base import Track
@@ -33,6 +34,14 @@ class UltralyticsTracker:
         self.settings, self.fps = settings, fps
         self.reset()
 
+    def _new_tracker(self):
+        """Support Ultralytics releases with and without the frame_rate argument."""
+        parameters = inspect.signature(self.constructor).parameters
+        args = SimpleNamespace(**self.settings)
+        if "frame_rate" in parameters:
+            return self.constructor(args, frame_rate=self.fps)
+        return self.constructor(args)
+
     def reset(self):
         self.trackers, self.ids, self.next_id = {}, {}, 1
 
@@ -45,7 +54,7 @@ class UltralyticsTracker:
         result = []
         for label in sorted(set(labels.tolist()) | set(self.trackers)):
             if label not in self.trackers:
-                self.trackers[label] = self.constructor(SimpleNamespace(**self.settings), frame_rate=self.fps)
+                self.trackers[label] = self._new_tracker()
             chosen = labels == label
             packed = np.column_stack([boxes[chosen], scores[chosen], labels[chosen]]).astype(np.float32)
             shape = frame.shape[:2] if frame is not None else (1, 1)

@@ -1,0 +1,13 @@
+# TEMPLATE ONLY: calibrate this sequence with measured road points before estimating speed.
+camera_id: MVI_20063
+fps: 25
+frame_size: [960, 540]
+world_unit: meter
+homography:
+  matrix: null
+speed:
+  smoothing_window: 5
+  min_track_observations: 3
+  max_reasonable_kmh: 160
+  max_gap_seconds: 0.5
+  min_duration_seconds: 0.08

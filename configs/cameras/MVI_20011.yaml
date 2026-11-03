@@ -1,0 +1,41 @@
+camera_id: MVI_20011
+fps: 25.0
+frame_size:
+- 960
+- 540
+world_unit: meter
+homography:
+  matrix:
+  - - 0.13933234482900442
+    - 0.058088995074483035
+    - -74.26860817809592
+  - - -0.007817316720390351
+    - 0.7270104549962968
+    - -92.22870266716465
+  - - -0.0006083010118182093
+    - 0.051056899104070845
+    - 1.0
+calibration:
+  image_points:
+  - - 478
+    - 132
+  - - 664
+    - 134
+  - - 959
+    - 480
+  - - 335
+    - 475
+  world_points:
+  - - 0
+    - 0
+  - - 3.5
+    - 0
+  - - 3.5
+    - 10
+  - - 0
+    - 10
+  reprojection_error_m: 6.303025907553349e-15
+speed:
+  smoothing_window: 5
+  min_track_observations: 3
+  max_reasonable_kmh: 160

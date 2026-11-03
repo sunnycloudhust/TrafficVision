@@ -6,9 +6,12 @@ world-points JSON is always measured coordinates in meters; no invented distance
 import argparse
 import json
 from pathlib import Path
+import sys
+
 import cv2
 import yaml
-from trafficvision.geometry.homography import Homography
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from trafficvision.geometry.homography import Homography  
 
 
 def main():
