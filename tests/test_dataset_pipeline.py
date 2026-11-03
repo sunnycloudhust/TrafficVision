@@ -1,7 +1,7 @@
 import json
 from trafficvision.pipeline.dataset_pipeline import track_dataset
 from trafficvision.pipeline.detection_tracking import DetectionTrackingPipeline
-from trafficvision.smoke import SyntheticDetector
+from helpers import SyntheticDetector
 from trafficvision.registry import build_tracker
 from trafficvision.evaluation.tracking_metrics import tracking_metrics
 

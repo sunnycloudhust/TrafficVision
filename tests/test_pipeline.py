@@ -3,7 +3,7 @@ import json
 import cv2
 import numpy as np
 import pytest
-from trafficvision.smoke import SyntheticDetector
+from helpers import SyntheticDetector
 from trafficvision.registry import build_tracker
 from trafficvision.geometry.homography import Homography
 from trafficvision.pipeline.detection_tracking import DetectionTrackingPipeline

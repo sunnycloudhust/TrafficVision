@@ -6,9 +6,14 @@ import hashlib
 import io
 import json
 import os
-from pathlib import Path
+import sys
 import tarfile
-from trafficvision.data.parsers.xml_parser import parse_sequence, CLASS_MAP
+from pathlib import Path
+
+# Allow direct execution from a checkout that uses the src/ package layout.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from trafficvision.data.parsers.xml_parser import parse_sequence, CLASS_MAP  # noqa: E402
 from trafficvision.data.splits import split_sequences, validate_splits
 from trafficvision.data.cache import sha256_file
 
@@ -69,12 +74,17 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
                 shard_path = output / f"{split}-{start // shard_size:05d}.tar"
                 with tarfile.open(shard_path, "w") as tar:
                     for path, row in samples[start : start + shard_size]:
-                        from PIL import Image
+                        if path.suffix.lower() in (".jpg", ".jpeg"):
+                            # Preserve source JPEGs; decoding and recompressing every frame is slow
+                            # and can introduce avoidable image differences.
+                            payload = path.read_bytes()
+                        else:
+                            from PIL import Image
 
-                        with Image.open(path) as image:
-                            buffer = io.BytesIO()
-                            image.convert("RGB").save(buffer, format="JPEG", quality=95)
-                        payload = buffer.getvalue()
+                            with Image.open(path) as image:
+                                buffer = io.BytesIO()
+                                image.convert("RGB").save(buffer, format="JPEG", quality=95)
+                            payload = buffer.getvalue()
                         row = dict(row, image_sha256=hashlib.sha256(payload).hexdigest())
                         key = f"{row['video_id']}_{row['frame_id']:06d}"
                         for ext, content in (("jpg", payload), ("json", json.dumps(row).encode())):

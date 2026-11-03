@@ -72,4 +72,4 @@ Gap dài, timestamp không tăng hoặc vận tốc bước nhảy vượt giớ
 
 Video mặc định timestamp `frame_index/FPS`. Mode PTS đọc `CAP_PROP_POS_MSEC` và từ chối timestamp không đơn điệu. Output MP4 là constant-FPS theo nguồn, CSV giữ timestamp đã dùng để tính. FPS và frame size calibration phải khớp video, không tự scale homography mà không có xác nhận hình học.
 
-Chỉ dùng calibration của mặt đường tương ứng. Một ma trận synthetic trong smoke chỉ có ý nghĩa với cảnh giả lập mà smoke tự tạo. UA-DETRAC trajectory/bbox không phải GT vận tốc mét/giây.
+Chỉ dùng calibration của mặt đường tương ứng. Ma trận homography của cảnh kiểm thử tổng hợp chỉ dùng để kiểm tra phần mềm, không áp dụng cho video thực. UA-DETRAC trajectory/bbox không phải GT vận tốc mét/giây.

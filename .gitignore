@@ -19,3 +19,6 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 .vscode
+
+# macOS
+.DS_Store

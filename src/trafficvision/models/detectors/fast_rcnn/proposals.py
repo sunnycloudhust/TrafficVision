@@ -1,6 +1,6 @@
 """External proposals. Selective Search requires opencv-contrib.
 
-Grid mode is explicit and intended for smoke tests, not Selective Search results.
+Grid mode is explicit and intended for lightweight automated tests, not Selective Search results.
 """
 
 import cv2

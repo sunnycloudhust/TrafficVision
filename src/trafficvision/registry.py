@@ -29,7 +29,7 @@ def load_detector(name, checkpoint=None, config=None, device="cpu", confidence=0
             image_size=params.get("image_size", 640),
         )
     if checkpoint is None:
-        raise ValueError("Custom inference requires a trained checkpoint; use smoke for random-weight tests")
+        raise ValueError("Custom inference requires a trained checkpoint")
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
     if saved["model_name"] != name:
         raise ValueError("Checkpoint architecture does not match requested detector")

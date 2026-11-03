@@ -59,8 +59,6 @@ def main(argv=None):
     speed = sub.add_parser("evaluate-speed")
     speed.add_argument("--pairs", required=True, help="CSV with matched gt_kmh,predicted_kmh columns")
     speed.add_argument("--output", default="outputs/evaluation/speed.json")
-    smoke = sub.add_parser("smoke", help="Synthetic functional check; not real model quality evaluation")
-    smoke.add_argument("--output", default="outputs/smoke")
     args = parser.parse_args(argv)
     if args.command == "train":
         from .training.trainer import train
@@ -139,11 +137,5 @@ def main(argv=None):
             speed_metrics([float(r["gt_kmh"]) for r in rows], [float(r["predicted_kmh"]) for r in rows]),
             args.output,
         )
-    elif args.command == "smoke":
-        from .smoke import run_smoke
-
-        print(json.dumps(run_smoke(args.output), indent=2))
-
-
 if __name__ == "__main__":
     main()

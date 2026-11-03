@@ -23,10 +23,9 @@ Nếu đã import torch/cv2 trước khi thay version, restart runtime rồi qua
 import torch, torchvision, cv2
 print(torch.__version__, torchvision.__version__, torch.cuda.is_available())
 print(cv2.__version__, hasattr(cv2, "ximgproc"))
-!python -m trafficvision.cli smoke --output outputs/smoke
 ```
 
-Smoke cố định chạy CPU nhẹ, dù runtime có GPU. Train thật mới dùng `training.device: cuda`.
+Sau khi cài đặt, dùng cấu hình train bên dưới để chạy mô hình trên GPU.
 
 ## 2. Nạp manifest remote
 
@@ -71,11 +70,6 @@ Cache tải shard của split đang được sử dụng, chưa bảo đảm to�
 ```
 
 Với video riêng, tải lên runtime hoặc truyền đường dẫn trực tiếp được OpenCV hỗ trợ rồi chạy `demo` như README. Chọn calibration points bằng JSON; Colab không hỗ trợ cửa sổ click OpenCV desktop.
-
-```python
-from IPython.display import Video
-Video("outputs/smoke/synthetic_demo.mp4", embed=True)
-```
 
 Một số trình duyệt không phát codec `mp4v`; có thể tải MP4 về xem bằng VLC hoặc dùng ffmpeg đổi sang H.264. Việc decode/ghi file đã được kiểm tra bằng OpenCV; khả năng phát inline phụ thuộc codec của trình duyệt.
 

@@ -68,21 +68,12 @@ Còn cần đo thực: điểm đường có khoảng cách đã biết, calibra
 
 Đã làm:
 
-- CLI train/evaluate/demo/track-dataset/evaluate-tracking/evaluate-speed/smoke.
+- CLI train/evaluate/demo/track-dataset/evaluate-tracking/evaluate-speed.
 - Video pipeline, lựa chọn FPS/PTS, kiểm tra độ phân giải/FPS/camera ID, đóng tài nguyên khi có lỗi.
 - MP4 overlay bbox/class/ID/speed/zones; CSV và JSON ghi từng observation, summary runtime.
-- Synthetic smoke có sẵn, notebook kiểm tra annotation, tài liệu local/Colab, script tổng hợp report thành comparison CSV và CI CPU.
+- Regression tests dùng dữ liệu và detector tổng hợp để kiểm tra pipeline; notebook kiểm tra annotation, tài liệu local/Colab, script tổng hợp report thành comparison CSV và CI CPU.
 
-Đã kiểm tra: ghi/đọc lại MP4 đủ frame; CSV/JSON cùng số observation; tracking ID ổn định; cảnh synthetic 50 frame, 25 FPS, 0.1 m/pixel và 2 pixel/frame cho kết quả khoảng **18 km/h**. Đã chạy video pipeline với YOLOv8n pretrained, chưa có video giao thông thực của nhóm.
-
-Artifacts xem ngay trong workspace:
-
-- `outputs/smoke/synthetic_input.mp4`
-- `outputs/smoke/synthetic_demo.mp4`, `.csv`, `.json`, `.summary.json`
-- `outputs/smoke/checks.json`
-- `outputs/smoke/yolo_pretrained.mp4` và exports tương ứng
-
-Artifacts nằm trong `.gitignore`; clone mới tạo lại bằng `python -m trafficvision.cli smoke`.
+Đã kiểm tra: regression tests kiểm tra ghi/đọc MP4, CSV/JSON, tracking ID và phép tính vận tốc trên fixture tổng hợp. Đã chạy video pipeline với YOLOv8n pretrained, chưa có video giao thông thực của nhóm.
 
 ## Kết quả kiểm tra môi trường
 
@@ -91,7 +82,7 @@ Artifacts nằm trong `.gitignore`; clone mới tạo lại bằng `python -m tr
 - Ruff lint và format đã kiểm tra; package cài được qua `pip install -e ".[train,tracking-eval,dev]"`.
 - TrackEval pin commit chính thức; không phụ thuộc một phiên bản PyPI có requirement NumPy xung đột môi trường này.
 - CI đã viết, chưa chạy trên GitHub vì workspace chưa có remote Git.
-- `requirements/constraints-tested.txt` ghi snapshot dependency đã kiểm thử.
+- `requirements.txt` gom dependency của project, train, tracking evaluation và dev; file không khóa phiên bản toàn bộ môi trường.
 
 ## Bảng kết quả thực nghiệm chờ điền
 

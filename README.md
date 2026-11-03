@@ -21,13 +21,10 @@ python -m pip install -e ".[train,tracking-eval,dev]"
 python -m pip install --force-reinstall --no-deps opencv-contrib-python-headless==4.10.0.84
 
 python -m trafficvision.cli --help
-python -m trafficvision.cli smoke --output outputs/smoke
 python -m pytest -q
 ```
 
-`smoke` chạy forward/loss/backward cho 4 custom detector, tạo video giả lập 50 frame và chạy tracking + speed + export. Mở `outputs/smoke/synthetic_demo.mp4`; CSV, JSON và `checks.json` nằm cạnh video. Quỹ đạo được định nghĩa có vận tốc **18 km/h**. Detector của video giả lập dùng box đã biết để kiểm tra pipeline; kết quả này không đo chất lượng detection trên giao thông thực.
-
-`requirements/constraints-tested.txt` ghi phiên bản môi trường CPU đã kiểm thử, không dùng nguyên file này làm CUDA lockfile. Thiết lập trên Colab xem [docs/COLAB.md](docs/COLAB.md).
+`requirements.txt` cài project cùng các dependency cho train, tracking evaluation và phát triển. Với GPU, hãy cài PyTorch/Torchvision tương thích CUDA trước. Thiết lập trên Colab xem [docs/COLAB.md](docs/COLAB.md).
 
 ## 2. Phase 1 — Chuẩn bị UA-DETRAC
 
@@ -97,7 +94,7 @@ python -m trafficvision.cli train --model yolov8 --init pretrained \
   --config configs/experiments/yolov8_baseline.yaml
 ```
 
-Custom detectors tự lắp kiến trúc; mặc định CNN nhỏ train từ random để dễ debug. Faster/Fast/R-CNN hỗ trợ `params.backbone: resnet18`, `--init imagenet` cho transfer learning; không gọi đó là scratch. RT-DETR là **biến thể học tập rút gọn**, xem kiến trúc trước khi trình bày kết quả. R-CNN/Fast R-CNN mặc định dùng Selective Search; `proposal_strategy: grid` dành riêng cho smoke test.
+Custom detectors tự lắp kiến trúc; mặc định CNN nhỏ train từ random để dễ debug. Faster/Fast/R-CNN hỗ trợ `params.backbone: resnet18`, `--init imagenet` cho transfer learning; không gọi đó là scratch. RT-DETR là **biến thể học tập rút gọn**, xem kiến trúc trước khi trình bày kết quả. R-CNN/Fast R-CNN mặc định dùng Selective Search; `proposal_strategy: grid` chỉ dành cho kiểm thử tự động nhẹ.
 
 Custom runs lưu `config.yaml`, `metrics.jsonl`, `last.pt`, `best.pt` (chọn theo validation COCO mAP). Checkpoint gồm model params, state, optimizer, scheduler, epoch, seed/config và RNG; resume tại ranh giới epoch:
 
@@ -112,7 +109,7 @@ python -m trafficvision.cli evaluate --model faster_rcnn \
 
 YOLO materialize split vào ổ runtime để dùng trainer native. Weights sau fine-tune ở `outputs/yolov8/train/weights/best.pt`. Dùng cùng lệnh `evaluate`, thay `--model yolov8` và checkpoint tương ứng để so sánh bằng evaluator chung. COCO pretrained không có class `van`; adapter kiểm tra tên class checkpoint, map `car→car`, `bus→bus`, `truck→others` và ghi hạn chế này trong metrics.
 
-Evaluation báo mAP@.5, mAP@.5:.95, AP theo class, precision/recall tại threshold .25, thời gian predict, parameter count/bytes và CUDA peak memory nếu có. FPS trong smoke không phải benchmark GPU. Cố định split, ignore policy, threshold và phần cứng khi so sánh. Không dùng test để tuning.
+Evaluation báo mAP@.5, mAP@.5:.95, AP theo class, precision/recall tại threshold .25, thời gian predict, parameter count/bytes và CUDA peak memory nếu có. Cố định split, ignore policy, threshold và phần cứng khi so sánh. Không dùng test để tuning.
 
 ## 4. Phase 3 — Tracking và polygon
 
