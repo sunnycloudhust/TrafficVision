@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import cv2
 import numpy as np
+from tqdm.auto import tqdm
 from torchvision.transforms.functional import pil_to_tensor
 from ..data.datasets.ua_detrac import build_dataset
 from ..visualization.result_exporter import ResultExporter
@@ -15,13 +16,17 @@ def track_dataset(config, split, pipeline, output, fps=25):
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     source = build_dataset(config["data"], split).source
+    try:
+        total_frames = len(source)
+    except (TypeError, NotImplementedError):
+        total_frames = None
     exporter = ResultExporter(output)
     gt_path = output.with_suffix(".gt.jsonl")
     previous_video, previous_frame, seen = None, 0, set()
     frames = 0
     try:
         with gt_path.open("w") as ground_truth:
-            for image, record in source:
+            for image, record in tqdm(source, total=total_frames, desc=f"Tracking {split}", unit="frame"):
                 video, frame_id = record["video_id"], record["frame_id"]
                 if video != previous_video:
                     if video in seen:

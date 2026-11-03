@@ -7,6 +7,7 @@ import random
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, IterableDataset
+from tqdm.auto import tqdm
 import yaml
 from ..data.datasets.ua_detrac import build_dataset, collate_detection
 from ..models.base import TorchDetector
@@ -98,69 +99,90 @@ def train(config, model_name=None, init=None, resume=None):
     (output / "config.yaml").write_text(yaml.safe_dump(resolved, sort_keys=False))
     training = data_loader(config, "train", generator)
     validation = data_loader(config, "val")
-    for epoch in range(start, epochs):
-        if hasattr(training.dataset, "set_epoch"):
-            training.dataset.set_epoch(epoch)
-        model.train()
-        losses, steps = 0.0, 0
-        for images, targets in training:
-            if train_config.get("max_steps") and steps >= train_config["max_steps"]:
-                break
-            images = [image.to(device) for image in images]
-            targets = [{k: v.to(device) for k, v in target.items()} for target in targets]
-            optimizer.zero_grad(set_to_none=True)
-            components = model(images, targets)
-            loss = sum(components.values())
-            if not torch.isfinite(loss):
-                raise FloatingPointError(f"Non-finite loss at epoch {epoch}: {components}")
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), train_config.get("gradient_clip", 10.0))
-            optimizer.step()
-            losses += loss.item()
-            steps += 1
-        if not steps:
-            raise ValueError("Training dataset produced zero batches")
-        scheduler.step()
-        metrics = evaluate_detector(
-            TorchDetector(model, device, confidence=0.0),
-            validation,
-            max_batches=train_config.get("validation_batches"),
-        )
-        current = metrics["map"]
-        improved = current > best
-        best = max(current, best)
-        record = dict(epoch=epoch, loss=losses / steps, lr=optimizer.param_groups[0]["lr"], metrics=metrics)
-        with (output / "metrics.jsonl").open("a") as handle:
-            handle.write(json.dumps(record) + "\n")
-        numpy_rng = np.random.get_state()
-        saved = dict(
-            model_name=name,
-            model_params=params,
-            model_state=model.state_dict(),
-            init=initialization,
-            config=resolved,
-            optimizer_state=optimizer.state_dict(),
-            scheduler_state=scheduler.state_dict(),
-            epoch=epoch,
-            best_map=best,
-            torch_rng=torch.get_rng_state(),
-            python_rng=random.getstate(),
-            loader_rng=generator.get_state(),
-            cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
-            class_map={"car": 1, "bus": 2, "van": 3, "others": 4},
-            torch_version=str(torch.__version__),
-            numpy_rng=dict(
-                algorithm=numpy_rng[0],
-                keys=numpy_rng[1].tolist(),
-                position=numpy_rng[2],
-                has_gauss=numpy_rng[3],
-                cached_gaussian=numpy_rng[4],
-            ),
-        )
-        save_checkpoint(output / "last.pt", saved)
-        if improved:
-            save_checkpoint(output / "best.pt", saved)
-        print(json.dumps(record), flush=True)
+    with tqdm(range(start, epochs), desc="Training", unit="epoch") as epoch_progress:
+        for epoch in epoch_progress:
+            if hasattr(training.dataset, "set_epoch"):
+                training.dataset.set_epoch(epoch)
+            model.train()
+            losses, steps = 0.0, 0
+            try:
+                batch_total = len(training)
+            except (TypeError, NotImplementedError):
+                batch_total = None
+            max_steps = train_config.get("max_steps")
+            if max_steps is not None:
+                batch_total = min(batch_total, max_steps) if batch_total is not None else max_steps
+            with tqdm(
+                training,
+                total=batch_total,
+                desc=f"Epoch {epoch + 1}/{epochs}",
+                unit="batch",
+                leave=False,
+            ) as batches:
+                for images, targets in batches:
+                    if max_steps and steps >= max_steps:
+                        break
+                    images = [image.to(device) for image in images]
+                    targets = [{k: v.to(device) for k, v in target.items()} for target in targets]
+                    optimizer.zero_grad(set_to_none=True)
+                    components = model(images, targets)
+                    loss = sum(components.values())
+                    if not torch.isfinite(loss):
+                        raise FloatingPointError(f"Non-finite loss at epoch {epoch}: {components}")
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), train_config.get("gradient_clip", 10.0)
+                    )
+                    optimizer.step()
+                    losses += loss.item()
+                    steps += 1
+                    batches.set_postfix(
+                        loss=f"{loss.item():.4f}", lr=f"{optimizer.param_groups[0]['lr']:.2e}"
+                    )
+            if not steps:
+                raise ValueError("Training dataset produced zero batches")
+            scheduler.step()
+            metrics = evaluate_detector(
+                TorchDetector(model, device, confidence=0.0),
+                validation,
+                max_batches=train_config.get("validation_batches"),
+            )
+            current = metrics["map"]
+            improved = current > best
+            best = max(current, best)
+            record = dict(epoch=epoch, loss=losses / steps, lr=optimizer.param_groups[0]["lr"], metrics=metrics)
+            epoch_progress.set_postfix(loss=f"{record['loss']:.4f}", val_map=f"{current:.4f}")
+            with (output / "metrics.jsonl").open("a") as handle:
+                handle.write(json.dumps(record) + "\n")
+            numpy_rng = np.random.get_state()
+            saved = dict(
+                model_name=name,
+                model_params=params,
+                model_state=model.state_dict(),
+                init=initialization,
+                config=resolved,
+                optimizer_state=optimizer.state_dict(),
+                scheduler_state=scheduler.state_dict(),
+                epoch=epoch,
+                best_map=best,
+                torch_rng=torch.get_rng_state(),
+                python_rng=random.getstate(),
+                loader_rng=generator.get_state(),
+                cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+                class_map={"car": 1, "bus": 2, "van": 3, "others": 4},
+                torch_version=str(torch.__version__),
+                numpy_rng=dict(
+                    algorithm=numpy_rng[0],
+                    keys=numpy_rng[1].tolist(),
+                    position=numpy_rng[2],
+                    has_gauss=numpy_rng[3],
+                    cached_gaussian=numpy_rng[4],
+                ),
+            )
+            save_checkpoint(output / "last.pt", saved)
+            if improved:
+                save_checkpoint(output / "best.pt", saved)
+            tqdm.write(json.dumps(record))
     return output
 
 

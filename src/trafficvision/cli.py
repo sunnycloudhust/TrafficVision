@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+from tqdm.auto import tqdm
 from .config import load_config
 
 
@@ -132,7 +133,7 @@ def main(argv=None):
         from .evaluation.speed_metrics import speed_metrics
 
         with open(args.pairs) as handle:
-            rows = list(csv.DictReader(handle))
+            rows = list(tqdm(csv.DictReader(handle), desc="Loading speed pairs", unit="pair"))
         write_result(
             speed_metrics([float(r["gt_kmh"]) for r in rows], [float(r["predicted_kmh"]) for r in rows]),
             args.output,

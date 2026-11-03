@@ -9,6 +9,7 @@ import os
 import sys
 import tarfile
 from pathlib import Path
+from tqdm.auto import tqdm
 
 # Allow direct execution from a checkout that uses the src/ package layout.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -26,7 +27,7 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
     if not files:
         raise ValueError("No XML annotation files found")
     sequences = {}
-    for path in files:
+    for path in tqdm(files, desc="Parsing annotation sequences", unit="sequence"):
         rows = parse_sequence(path)
         if not rows:
             raise ValueError(f"No frames in {path}")
@@ -42,7 +43,7 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
         raise ValueError("Splits must cover exactly all annotated sequences using train/val/test")
     # Discover images instead of assuming an archive directory layout.
     image_paths = {}
-    for path in images.rglob("*"):
+    for path in tqdm(images.rglob("*"), desc="Indexing image files", unit="file"):
         if path.suffix.lower() not in (".jpg", ".jpeg", ".png"):
             continue
         video = next((p.name for p in path.parents if p.name in sequences), None)
@@ -55,7 +56,7 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
     grouped = defaultdict(list)
     image_id = 0
     for split, videos in splits.items():
-        for video in videos:
+        for video in tqdm(videos, desc=f"Matching {split} frames", unit="sequence"):
             for row in sequences[video]:
                 key = (video, row["frame_id"])
                 if key not in image_paths:
@@ -68,8 +69,9 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
     shards = []
     with (output / "frames.jsonl").open("w") as manifest:
         for split, samples in grouped.items():
-            for path, row in samples:
+            for path, row in tqdm(samples, desc=f"Writing {split} manifest", unit="frame"):
                 manifest.write(json.dumps(dict(row, image=os.path.relpath(path, output.resolve()))) + "\n")
+            shard_progress = tqdm(total=len(samples), desc=f"Building {split} shards", unit="frame")
             for start in range(0, len(samples), shard_size):
                 shard_path = output / f"{split}-{start // shard_size:05d}.tar"
                 with tarfile.open(shard_path, "w") as tar:
@@ -91,6 +93,7 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
                             member = tarfile.TarInfo(f"{key}.{ext}")
                             member.size = len(content)
                             tar.addfile(member, io.BytesIO(content))
+                        shard_progress.update(1)
                 shards.append(
                     dict(
                         url=shard_path.name,
@@ -100,6 +103,7 @@ def prepare(images, annotations, output, splits_path=None, seed=42, shard_size=5
                         samples=len(samples[start : start + shard_size]),
                     )
                 )
+            shard_progress.close()
     metadata = dict(
         schema_version=1,
         class_map=CLASS_MAP,

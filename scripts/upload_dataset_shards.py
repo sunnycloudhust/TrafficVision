@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 from huggingface_hub import HfApi
+from tqdm.auto import tqdm
 
 
 def main():
@@ -18,7 +19,7 @@ def main():
     data = json.loads(path.read_text())
     api = HfApi()
     api.create_repo(args.repo_id, repo_type="dataset", private=not args.public, exist_ok=True)
-    for shard in data["shards"]:
+    for shard in tqdm(data["shards"], desc="Uploading shards", unit="shard"):
         local = path.parent / shard["url"]
         api.upload_file(
             path_or_fileobj=str(local), path_in_repo=local.name, repo_id=args.repo_id, repo_type="dataset"

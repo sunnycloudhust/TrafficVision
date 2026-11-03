@@ -3,6 +3,7 @@
 from pathlib import Path
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 
 
 class YOLOv8Detector:
@@ -64,7 +65,12 @@ def export_yolo_dataset(data_config, destination):
         images_dir, labels_dir = destination / "images" / split, destination / "labels" / split
         images_dir.mkdir(parents=True, exist_ok=True)
         labels_dir.mkdir(parents=True, exist_ok=True)
-        for image, target in build_dataset(data_config, split):
+        dataset = build_dataset(data_config, split)
+        try:
+            total = len(dataset)
+        except (TypeError, NotImplementedError):
+            total = None
+        for image, target in tqdm(dataset, total=total, desc=f"Exporting YOLO {split}", unit="image"):
             key = f"{int(target['image_id']):09d}"
             to_pil_image(mask_ignored_pixels(image, target)).save(images_dir / f"{key}.jpg")
             height, width = image.shape[-2:]

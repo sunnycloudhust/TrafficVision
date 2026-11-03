@@ -2,6 +2,7 @@
 
 import time
 import torch
+from tqdm.auto import tqdm
 from torchvision.ops import box_iou
 from ..data.ignore import centers_in_regions
 
@@ -46,21 +47,29 @@ def evaluate_detector(detector, loader, max_batches=None, confidence=0.25):
         torch.cuda.reset_peak_memory_stats()
     tp = fp = fn = frames = 0
     duration = 0.0
-    for index, (images, targets) in enumerate(loader):
-        if max_batches is not None and index >= max_batches:
-            break
-        predictions, truth = [], []
-        for image, target in zip(images, targets):
-            start = time.perf_counter()
-            prediction = detector.predict(image)
-            duration += time.perf_counter() - start
-            prediction = filter_ignored(prediction, target)
-            predictions.append(prediction)
-            truth.append({k: target[k] for k in ("boxes", "labels", "area", "iscrowd")})
-            a, b, c = precision_counts(prediction, target, confidence)
-            tp, fp, fn = tp + a, fp + b, fn + c
-            frames += 1
-        metric.update(predictions, truth)
+    try:
+        total_batches = len(loader)
+    except (TypeError, NotImplementedError):
+        total_batches = None
+    if max_batches is not None:
+        total_batches = min(total_batches, max_batches) if total_batches is not None else max_batches
+    with tqdm(loader, total=total_batches, desc="Evaluating", unit="batch", leave=False) as batches:
+        for index, (images, targets) in enumerate(batches):
+            if max_batches is not None and index >= max_batches:
+                break
+            predictions, truth = [], []
+            for image, target in zip(images, targets):
+                start = time.perf_counter()
+                prediction = detector.predict(image)
+                duration += time.perf_counter() - start
+                prediction = filter_ignored(prediction, target)
+                predictions.append(prediction)
+                truth.append({k: target[k] for k in ("boxes", "labels", "area", "iscrowd")})
+                a, b, c = precision_counts(prediction, target, confidence)
+                tp, fp, fn = tp + a, fp + b, fn + c
+                frames += 1
+            metric.update(predictions, truth)
+            batches.set_postfix(frames=frames)
     if not frames:
         raise ValueError("Cannot evaluate an empty dataset")
     result = {k: v.tolist() for k, v in metric.compute().items()}

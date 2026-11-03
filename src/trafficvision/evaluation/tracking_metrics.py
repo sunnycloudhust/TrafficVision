@@ -8,6 +8,7 @@ from collections import defaultdict
 import csv
 import json
 import numpy as np
+from tqdm.auto import tqdm
 from ..tracking.sort import iou_matrix
 
 
@@ -36,7 +37,7 @@ def sequence_data(ground_truth, predictions):
         raise ValueError("Predictions contain frames absent from ground truth")
     gt_maps, pred_maps = {}, {}
     gt_ids, tracker_ids, similarities = [], [], []
-    for frame_id in range(1, max(ground_truth) + 1):
+    for frame_id in tqdm(range(1, max(ground_truth) + 1), desc="Aligning sequence", unit="frame", leave=False):
         row = ground_truth.get(frame_id, dict(boxes=[], labels=[], track_ids=[], ignored_regions=[]))
         records = predictions.get(frame_id, [])
         boxes = np.array([r["box"] for r in records], dtype=float).reshape(-1, 4)
@@ -81,12 +82,13 @@ def tracking_metrics(gt_manifest, prediction_csv, split="test"):
     trackeval = trackeval_backend()
     gt, pred = defaultdict(list), defaultdict(lambda: defaultdict(list))
     with open(gt_manifest) as handle:
-        for line in handle:
+        for line in tqdm(handle, desc="Loading tracking ground truth", unit="record", leave=False):
             row = json.loads(line)
             if row["split"] == split:
                 gt[row["video_id"]].append(row)
     with open(prediction_csv) as handle:
-        for row in csv.DictReader(handle):
+        predictions = tqdm(csv.DictReader(handle), desc="Loading tracking predictions", unit="record", leave=False)
+        for row in predictions:
             if row["video_id"] not in gt:
                 raise ValueError(f"Prediction video outside {split} split: {row['video_id']}")
             pred[row["video_id"]][int(row["frame_id"])].append(
@@ -104,7 +106,7 @@ def tracking_metrics(gt_manifest, prediction_csv, split="test"):
         trackeval.metrics.Identity({"PRINT_CONFIG": False}),
     ]
     results = {metric.get_name(): {} for metric in metrics}
-    for video, rows in gt.items():
+    for video, rows in tqdm(gt.items(), total=len(gt), desc="TrackEval sequences", unit="sequence"):
         data = sequence_data(rows, pred[video])
         for metric in metrics:
             results[metric.get_name()][video] = metric.eval_sequence(data)

@@ -6,6 +6,7 @@ from pathlib import Path
 import time
 import cv2
 import torch
+from tqdm.auto import tqdm
 from ..visualization.annotator import annotate
 from ..visualization.video_writer import VideoWriter
 from ..visualization.result_exporter import ResultExporter
@@ -46,23 +47,30 @@ def run_video(
         exporter = ResultExporter(output)
         frame_id, previous_timestamp = 0, None
         start = time.perf_counter()
-        while max_frames is None or frame_id < max_frames:
-            ok, frame = cap.read()
-            if not ok:
-                break
-            timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000 if timestamp_mode == "pts" else frame_id / fps
-            if not math.isfinite(timestamp) or (
-                previous_timestamp is not None and timestamp <= previous_timestamp
-            ):
-                raise ValueError("Non-monotonic/missing PTS; use --timestamp-mode fps for constant-FPS video")
-            previous_timestamp = timestamp
-            frame_id += 1
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            tensor = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255
-            results = pipeline.process(tensor, timestamp, frame)
-            processing_fps = frame_id / max(time.perf_counter() - start, 1e-9)
-            writer.write(annotate(frame, results, pipeline.zones, processing_fps))
-            exporter.write(video_id or Path(str(source)).stem, frame_id, timestamp, results)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        total_frames = frame_count if frame_count > 0 else None
+        if max_frames is not None:
+            total_frames = min(total_frames, max_frames) if total_frames is not None else max_frames
+        with tqdm(total=total_frames, desc=f"Processing {Path(str(source)).name}", unit="frame") as progress:
+            while max_frames is None or frame_id < max_frames:
+                ok, frame = cap.read()
+                if not ok:
+                    break
+                timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000 if timestamp_mode == "pts" else frame_id / fps
+                if not math.isfinite(timestamp) or (
+                    previous_timestamp is not None and timestamp <= previous_timestamp
+                ):
+                    raise ValueError("Non-monotonic/missing PTS; use --timestamp-mode fps for constant-FPS video")
+                previous_timestamp = timestamp
+                frame_id += 1
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                tensor = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255
+                results = pipeline.process(tensor, timestamp, frame)
+                processing_fps = frame_id / max(time.perf_counter() - start, 1e-9)
+                writer.write(annotate(frame, results, pipeline.zones, processing_fps))
+                exporter.write(video_id or Path(str(source)).stem, frame_id, timestamp, results)
+                progress.update(1)
+                progress.set_postfix(fps=f"{processing_fps:.1f}")
         if frame_id == 0:
             raise ValueError("Source has no readable video frames")
         summary = dict(

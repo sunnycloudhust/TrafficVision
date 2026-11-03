@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from PIL import Image
+from tqdm.auto import tqdm
 from .base import DatasetSource
 
 
@@ -9,7 +10,7 @@ class LocalDatasetSource(DatasetSource):
         self.path = Path(manifest)
         self.records = []
         with self.path.open() as handle:
-            for line in handle:
+            for line in tqdm(handle, desc=f"Loading {split} manifest", unit="record", leave=False):
                 row = json.loads(line)
                 if row["split"] == split:
                     self.records.append(row)
@@ -17,7 +18,7 @@ class LocalDatasetSource(DatasetSource):
             raise ValueError(f"No records for split {split!r} in {manifest}")
         videos = {}
         with self.path.open() as handle:
-            for line in handle:
+            for line in tqdm(handle, desc="Checking sequence splits", unit="record", leave=False):
                 row = json.loads(line)
                 previous = videos.setdefault(row["video_id"], row["split"])
                 if previous != row["split"]:
