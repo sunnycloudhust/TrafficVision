@@ -1,0 +1,8 @@
+data:
+  source: local  # local | cloud | huggingface
+  manifest: data/ua_detrac/frames.jsonl
+  mode: auto
+  cache_dir: null  # null => process-owned temporary directory
+  seed: 42
+# For remote-first training: source: huggingface, manifest: data/ua_detrac/shards.remote.json
+# The local manifest is small; its shard URLs point to hf://datasets/<repo>/<file>.
