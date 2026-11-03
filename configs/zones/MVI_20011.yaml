@@ -1,16 +1,15 @@
-# ILLUSTRATION ONLY: visually verify and redraw for each camera.
 camera_id: MVI_20011
 frame_size: [960, 540]
 roi_only: true
 default_threshold: 0.25
 zones:
   far_zone:
-    polygon: [[320, 80], [640, 80], [760, 260], [220, 260]]
-    confidence_threshold: 0.05  # preserve low confidence candidates for ByteTrack
+    polygon: [[496, 80], [620, 80], [772, 260], [420, 260]]
+    confidence_threshold: 0.05
     inference_scale: 1.5
     measure_speed: true
   near_zone:
-    polygon: [[80, 260], [880, 260], [960, 540], [0, 540]]
+    polygon: [[420, 260], [772, 260], [960, 482], [960, 540], [303, 540]]
     confidence_threshold: 0.05
     inference_scale: 1.0
     measure_speed: true
