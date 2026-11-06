@@ -1,15 +1,33 @@
 camera_id: MVI_20011
-frame_size: [960, 540]
+frame_size:
+- 960
+- 540
 roi_only: true
 default_threshold: 0.25
 zones:
   far_zone:
-    polygon: [[496, 80], [620, 80], [772, 260], [420, 260]]
+    polygon:
+    - - 473
+      - 136
+    - - 665
+      - 135
+    - - 805
+      - 295
+    - - 405
+      - 299
     confidence_threshold: 0.05
-    inference_scale: 1.5
-    measure_speed: false
+    inference_scale: 1.0
+    measure_speed: true
   near_zone:
-    polygon: [[420, 260], [772, 260], [960, 482], [960, 540], [303, 540]]
+    polygon:
+    - - 403
+      - 299
+    - - 805
+      - 298
+    - - 956
+      - 478
+    - - 337
+      - 483
     confidence_threshold: 0.05
     inference_scale: 1.0
     measure_speed: true

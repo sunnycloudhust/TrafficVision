@@ -14,7 +14,7 @@ def annotate(frame, results, zones, fps=None):
         track = result["track"]
         x1, y1, x2, y2 = map(int, track.box)
         speed = result["speed_kmh"]
-        speed_text = "N/A" if speed is None else f"{speed:.1f} km/h"
+        speed_text = "N/A" if speed is None else f"{float(speed):.0f} km/h"
         name = CLASS_NAMES[track.label - 1] if 1 <= track.label <= len(CLASS_NAMES) else str(track.label)
         text = f"#{track.track_id} {name} {speed_text}"
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 230, 90), 2)
