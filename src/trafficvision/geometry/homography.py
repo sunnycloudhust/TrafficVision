@@ -44,3 +44,18 @@ class Homography:
         if np.any(abs(homogeneous[..., 2]) < 1e-8):
             raise ValueError("Point lies on the homography horizon")
         return homogeneous[..., :2] / homogeneous[..., 2:]
+
+    def jacobian(self, point):
+        """Analytic derivative of the perspective division at one image point."""
+        point = np.asarray(point, dtype=float)
+        if point.shape != (2,) or not np.isfinite(point).all():
+            raise ValueError("Jacobian needs one finite 2D point")
+        homogeneous = self.matrix @ np.r_[point, 1.0]
+        denominator = homogeneous[2]
+        if abs(denominator) < 1e-8:
+            raise ValueError("Point lies on the homography horizon")
+        world = homogeneous[:2] / denominator
+        result = (self.matrix[:2, :2] - world[:, None] * self.matrix[2, :2]) / denominator
+        if not np.isfinite(result).all():
+            raise ValueError("Non-finite homography Jacobian")
+        return result

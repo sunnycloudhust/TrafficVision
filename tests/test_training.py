@@ -38,4 +38,6 @@ def test_train_save_resume_evaluate(prepared, tmp_path, model_name):
 
 def test_config_inheritance():
     config = load_config("configs/experiments/faster_rcnn_scratch.yaml")
-    assert config["model"]["name"] == "faster_rcnn" and config["training"]["lr"] == 0.0001
+    base = load_config("configs/experiments/base.yaml")
+    assert config["model"]["name"] == "faster_rcnn"
+    assert config["training"]["lr"] == base["training"]["lr"]

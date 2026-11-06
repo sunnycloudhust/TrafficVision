@@ -37,7 +37,9 @@ def sequence_data(ground_truth, predictions):
         raise ValueError("Predictions contain frames absent from ground truth")
     gt_maps, pred_maps = {}, {}
     gt_ids, tracker_ids, similarities = [], [], []
-    for frame_id in tqdm(range(1, max(ground_truth) + 1), desc="Aligning sequence", unit="frame", leave=False):
+    for frame_id in tqdm(
+        range(1, max(ground_truth) + 1), desc="Aligning sequence", unit="frame", leave=False
+    ):
         row = ground_truth.get(frame_id, dict(boxes=[], labels=[], track_ids=[], ignored_regions=[]))
         records = predictions.get(frame_id, [])
         boxes = np.array([r["box"] for r in records], dtype=float).reshape(-1, 4)
@@ -87,7 +89,9 @@ def tracking_metrics(gt_manifest, prediction_csv, split="test"):
             if row["split"] == split:
                 gt[row["video_id"]].append(row)
     with open(prediction_csv) as handle:
-        predictions = tqdm(csv.DictReader(handle), desc="Loading tracking predictions", unit="record", leave=False)
+        predictions = tqdm(
+            csv.DictReader(handle), desc="Loading tracking predictions", unit="record", leave=False
+        )
         for row in predictions:
             if row["video_id"] not in gt:
                 raise ValueError(f"Prediction video outside {split} split: {row['video_id']}")

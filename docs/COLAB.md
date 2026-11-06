@@ -64,9 +64,9 @@ Cache tải shard của split đang được sử dụng, chưa bảo đảm to�
 ## 3. Train, evaluate, demo
 
 ```python
-!python scripts/utils.py train --config outputs/colab.yaml
-!python scripts/utils.py evaluate --model faster_rcnn --checkpoint outputs/faster_rcnn/best.pt --config outputs/colab.yaml --device cuda --split test --output outputs/evaluation/detection.json
-!python scripts/utils.py track-dataset --model faster_rcnn --checkpoint outputs/faster_rcnn/best.pt --config outputs/colab.yaml --device cuda --tracker bytetrack --output outputs/evaluation/tracks.csv
+!python scripts/run_trafficvision.py train --config outputs/colab.yaml
+!python scripts/run_trafficvision.py evaluate --model faster_rcnn --checkpoint outputs/faster_rcnn/best.pt --config outputs/colab.yaml --device cuda --split test --output outputs/evaluation/detection.json
+!python scripts/run_trafficvision.py track-dataset --model faster_rcnn --checkpoint outputs/faster_rcnn/best.pt --config outputs/colab.yaml --device cuda --tracker bytetrack --output outputs/evaluation/tracks.csv
 ```
 
 Với video riêng, tải lên runtime hoặc truyền đường dẫn trực tiếp được OpenCV hỗ trợ rồi chạy `demo` như README. Chọn calibration points bằng JSON; Colab không hỗ trợ cửa sổ click OpenCV desktop.

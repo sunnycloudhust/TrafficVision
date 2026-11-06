@@ -18,7 +18,7 @@ XML + frames → parser → canonical JSONL / TAR shards
                     annotation + CSV/JSON
 ```
 
-Dataset không biết model. Detector không biết tracker. Tracker không biết calibration. Speed estimator chỉ nhận ID, tọa độ mét và timestamp giây. Pipeline điều phối các module này.
+Dataset không biết model. Detector không biết tracker. Tracker không biết calibration. Speed estimator nhận ID, tọa độ mét, timestamp giây và Jacobian truyền nhiễu pixel sang hệ tọa độ thế giới. Pipeline điều phối các module này.
 
 ## Interface chung
 
@@ -66,9 +66,9 @@ Không thể đảm bảo bitwise reproducibility giữa phần cứng/PyTorch k
 
 ## Speed và timestamp
 
-Homography kiểm tra finite, nonsingular, điểm trùng/thẳng hàng và fit error. Khi chiếu gần horizon, pipeline bỏ quan sát và reset history. Hồi quy tuyến tính tọa độ 2D theo timestamp trong cửa sổ giúp giảm nhiễu; độ lớn vector vận tốc nhân 3.6 ra km/h. Quỹ đạo rẽ gấp trong cửa sổ có thể bị đánh giá thấp nên cần kiểm chứng với camera thực.
+Homography kiểm tra finite, nonsingular, điểm trùng/thẳng hàng và fit error. Khi chiếu gần horizon, pipeline bỏ quan sát và reset history. Pipeline dùng Kalman constant-velocity 2D; độ lớn vector vận tốc nhân 3.6 ra km/h. Jacobian giải tích thay bốn phép chiếu sai phân; covariance cập nhật Joseph và gain tính bằng solve. Uncertainty dùng trị riêng lớn nhất của velocity covariance, có tính tương quan hai trục. Chuyển động rẽ gấp cần kiểm chứng với camera thực.
 
-Gap dài, timestamp không tăng hoặc vận tốc bước nhảy vượt giới hạn làm reset history, không cắt số về một mức tốc độ trông hợp lý. `max_gap_seconds`, `max_reasonable_kmh` và window chỉ là kiểm soát đầu vào, không chứng minh một track không có ID switch.
+Gap dài hoặc timestamp không tăng khởi tạo lại trạng thái; innovation outlier trả N/A và reset sau `max_rejects`. Timeout tính từ observation cuối được chấp nhận, không từ lần predict/reject. `max_reasonable_kmh` và uncertainty gate kiểm soát việc xuất tốc độ, không chứng minh một track không có ID switch.
 
 Video mặc định timestamp `frame_index/FPS`. Mode PTS đọc `CAP_PROP_POS_MSEC` và từ chối timestamp không đơn điệu. Output MP4 là constant-FPS theo nguồn, CSV giữ timestamp đã dùng để tính. FPS và frame size calibration phải khớp video, không tự scale homography mà không có xác nhận hình học.
 
