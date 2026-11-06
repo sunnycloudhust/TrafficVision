@@ -11,10 +11,7 @@ import yaml
 WINDOW_NAME = "TrafficVision zone labeler"
 COLORS = ((0, 180, 255), (0, 230, 90), (255, 180, 0), (220, 80, 220))
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_FRAME_DIR = (
-    REPO_ROOT / "data" / "ua_detrac" / "raw" / "DETRAC" / "DETRAC-Images"
-    / "DETRAC-Images"
-)
+DEFAULT_FRAME_DIR = REPO_ROOT / "data" / "ua_detrac" / "raw" / "DETRAC" / "DETRAC-Images" / "DETRAC-Images"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "configs" / "zones"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
 
@@ -169,7 +166,8 @@ def discover_frames(frame_dir):
     frames = []
     for camera_dir in sorted(path for path in frame_dir.iterdir() if path.is_dir()):
         images = sorted(
-            path for path in camera_dir.iterdir()
+            path
+            for path in camera_dir.iterdir()
             if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
         )
         if images:
