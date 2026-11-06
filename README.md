@@ -127,6 +127,17 @@ Lệnh reset tracker giữa các video, kiểm tra thứ tự frame, xuất traj
 
 Polygon mẫu `configs/zones/MVI_20011.yaml` chưa phải calibration thật. Vẽ lại cho video rồi chỉnh `frame_size`, `confidence_threshold`, `inference_scale`, `measure_speed`. Dùng bottom-center để gán vùng; crop lượt riêng cho vùng có scale >1 rồi đưa box về frame gốc và NMS theo class. Threshold vùng thấp giữ candidate cho association; `new_track_thresh` vẫn kiểm soát việc sinh ID mới.
 
+Có thể chạy zone labeler không cần tham số. Chương trình tự lấy frame đầu tiên
+trong `data/ua_detrac` làm frame mẫu và lưu polygon dùng chung vào
+`configs/zones/common.yaml`:
+
+```bash
+python data-labelling/zone_labeler.py
+```
+
+Zone dùng chung không gắn với một `camera_id` cụ thể nên có thể dùng cho các video
+cùng góc quay.
+
 ## 5. Phase 4 — Calibration và vận tốc
 
 Với mỗi sequence, lưu tọa độ thực đã đo bằng **mét** tại `data/ua_detrac/world_points/world_points_<VIDEO_ID>.json`. Các điểm ảnh và điểm thực phải có cùng thứ tự, gồm ít nhất 4 điểm không thẳng hàng trên mặt đường. Không tự suy ra khoảng cách thực từ bbox.

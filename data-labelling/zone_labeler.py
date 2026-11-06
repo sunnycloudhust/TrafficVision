@@ -10,6 +10,11 @@ import yaml
 
 WINDOW_NAME = "TrafficVision zone labeler"
 COLORS = ((0, 180, 255), (0, 230, 90), (255, 180, 0), (220, 80, 220))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_VIDEO_DIR = REPO_ROOT / "data" / "ua_detrac"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "configs" / "zones"
+DEFAULT_OUTPUT = DEFAULT_OUTPUT_DIR / "common.yaml"
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
 
 
 class ZoneLabeler:
@@ -151,15 +156,30 @@ class ZoneLabeler:
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", required=True, help="Video file used for labelling")
-    parser.add_argument("--output", required=True, help="Output zone YAML path")
-    parser.add_argument("--camera-id", help="Camera ID; defaults to the video filename stem")
     return parser.parse_args()
 
 
+def discover_videos(video_dir):
+    video_dir = Path(video_dir)
+    if not video_dir.is_dir():
+        raise FileNotFoundError(f"Video directory does not exist: {video_dir}")
+    return sorted(
+        path for path in video_dir.rglob("*") if path.is_file() and path.suffix.lower() in VIDEO_EXTENSIONS
+    )
+
+
+def first_video(video_dir):
+    videos = discover_videos(video_dir)
+    if not videos:
+        raise FileNotFoundError(f"No video files found in: {video_dir}")
+    return videos[0]
+
+
 def main():
-    args = parse_args()
-    source = Path(args.source)
+    parse_args()
+    source = first_video(DEFAULT_VIDEO_DIR)
+    print(f"Dùng frame mẫu từ: {source}")
+    print(f"File zone dùng chung sẽ lưu tại: {DEFAULT_OUTPUT}")
     capture = cv2.VideoCapture(str(source))
     if not capture.isOpened():
         raise FileNotFoundError(f"Cannot open video source: {source}")
@@ -169,7 +189,7 @@ def main():
         capture.release()
     if not ok:
         raise ValueError(f"Video has no readable frames: {source}")
-    ZoneLabeler(frame, args.camera_id or source.stem, args.output).run()
+    ZoneLabeler(frame, None, DEFAULT_OUTPUT).run()
 
 
 if __name__ == "__main__":

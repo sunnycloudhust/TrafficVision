@@ -1,0 +1,61 @@
+camera_id: MVI_40191
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  far_zone:
+    polygon:
+    - - 384
+      - 69
+    - - 511
+      - 71
+    - - 475
+      - 207
+    - - 195
+      - 172
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  far_zone_lane2:
+    polygon:
+    - - 549
+      - 74
+    - - 708
+      - 77
+    - - 957
+      - 211
+    - - 574
+      - 210
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  near_zone:
+    polygon:
+    - - 191
+      - 173
+    - - 473
+      - 208
+    - - 382
+      - 535
+    - - 2
+      - 537
+    - - 0
+      - 274
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  near_zone2:
+    polygon:
+    - - 575
+      - 210
+    - - 959
+      - 210
+    - - 958
+      - 536
+    - - 632
+      - 536
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
