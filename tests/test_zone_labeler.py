@@ -6,7 +6,7 @@ import yaml
 from trafficvision.zones.zone_manager import ZoneManager
 
 spec = importlib.util.spec_from_file_location(
-    "zone_labeler", Path(__file__).parents[1] / "data-labelling/zone_labeler.py"
+    "zone_labeler", Path(__file__).parents[1] / "data/data-labelling/zone_labeler.py"
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)

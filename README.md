@@ -132,7 +132,7 @@ Có thể chạy zone labeler không cần tham số. Chương trình liệt kê
 `--done`. Sau khi chọn, chương trình chỉ đọc frame đầu tiên để kẻ polygon:
 
 ```bash
-python data-labelling/zone_labeler.py
+python data/data-labelling/zone_labeler.py
 ```
 
 Mỗi video được lưu zone riêng theo ID để dễ kiểm tra tiến độ.

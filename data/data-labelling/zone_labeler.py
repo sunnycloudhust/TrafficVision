@@ -10,7 +10,7 @@ import yaml
 
 WINDOW_NAME = "TrafficVision zone labeler"
 COLORS = ((0, 180, 255), (0, 230, 90), (255, 180, 0), (220, 80, 220))
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FRAME_DIR = (
     REPO_ROOT / "data" / "ua_detrac" / "raw" / "DETRAC" / "DETRAC-Images"
     / "DETRAC-Images"
