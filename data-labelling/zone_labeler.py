@@ -1,4 +1,4 @@
-"""Interactive polygon-zone labeler for TrafficVision video files."""
+"""Interactive polygon-zone labeler for UA-DETRAC camera frames."""
 
 import argparse
 from pathlib import Path
@@ -11,9 +11,12 @@ import yaml
 WINDOW_NAME = "TrafficVision zone labeler"
 COLORS = ((0, 180, 255), (0, 230, 90), (255, 180, 0), (220, 80, 220))
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_VIDEO_DIR = REPO_ROOT / "data" / "ua_detrac"
+DEFAULT_FRAME_DIR = (
+    REPO_ROOT / "data" / "ua_detrac" / "raw" / "DETRAC" / "DETRAC-Images"
+    / "DETRAC-Images"
+)
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "configs" / "zones"
-VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
 
 
 class ZoneLabeler:
@@ -158,51 +161,68 @@ def parse_args():
     return parser.parse_args()
 
 
-def discover_videos(video_dir):
-    video_dir = Path(video_dir)
-    if not video_dir.is_dir():
-        raise FileNotFoundError(f"Video directory does not exist: {video_dir}")
-    return sorted(
-        path for path in video_dir.rglob("*") if path.is_file() and path.suffix.lower() in VIDEO_EXTENSIONS
-    )
+def discover_frames(frame_dir):
+    """Pick the first available image from each camera sequence directory."""
+    frame_dir = Path(frame_dir)
+    if not frame_dir.is_dir():
+        raise FileNotFoundError(f"Frame directory does not exist: {frame_dir}")
+    frames = []
+    for camera_dir in sorted(path for path in frame_dir.iterdir() if path.is_dir()):
+        images = sorted(
+            path for path in camera_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+        )
+        if images:
+            frames.append(images[0])
+    return frames
 
 
-def choose_video(video_dir, output_dir):
-    videos = discover_videos(video_dir)
-    if not videos:
-        raise FileNotFoundError(f"No video files found in: {video_dir}")
-    print("Chọn video để kẻ zone:")
-    for index, video in enumerate(videos, 1):
-        status = " --done" if (Path(output_dir) / f"{video.stem}.yaml").is_file() else ""
-        print(f"  {index}. {video.stem}{status}")
+def has_zones(config_path):
+    """Return whether a saved zone config contains at least one zone."""
+    config_path = Path(config_path)
+    if not config_path.is_file():
+        return False
+    try:
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return False
+    if not isinstance(config, dict):
+        return False
+    zones = config.get("zones")
+    return isinstance(zones, dict) and bool(zones)
+
+
+def choose_frame(frame_dir, output_dir):
+    frames = discover_frames(frame_dir)
+    if not frames:
+        raise FileNotFoundError(f"No camera frames found in: {frame_dir}")
+    print("Chọn camera/frame đại diện để kẻ zone:")
+    for index, frame in enumerate(frames, 1):
+        status = " --done" if has_zones(Path(output_dir) / f"{frame.parent.name}.yaml") else ""
+        print(f"  {index}. {frame.parent.name}{status}")
     while True:
-        answer = input(f"Nhập số video (1-{len(videos)}): ").strip()
+        answer = input(f"Nhập số camera (1-{len(frames)}): ").strip()
         try:
             index = int(answer)
         except ValueError:
             print("Vui lòng nhập một số hợp lệ.")
             continue
-        if 1 <= index <= len(videos):
-            return videos[index - 1]
-        print(f"Số video phải nằm trong khoảng 1-{len(videos)}.")
+        if 1 <= index <= len(frames):
+            return frames[index - 1]
+        print(f"Số camera phải nằm trong khoảng 1-{len(frames)}.")
 
 
 def main():
     parse_args()
-    source = choose_video(DEFAULT_VIDEO_DIR, DEFAULT_OUTPUT_DIR)
-    output = DEFAULT_OUTPUT_DIR / f"{source.stem}.yaml"
-    print(f"Dùng frame đầu tiên từ: {source}")
+    source = choose_frame(DEFAULT_FRAME_DIR, DEFAULT_OUTPUT_DIR)
+    camera_id = source.parent.name
+    output = DEFAULT_OUTPUT_DIR / f"{camera_id}.yaml"
+    print(f"Dùng frame đại diện: {source}")
     print(f"File zone sẽ lưu tại: {output}")
-    capture = cv2.VideoCapture(str(source))
-    if not capture.isOpened():
-        raise FileNotFoundError(f"Cannot open video source: {source}")
-    try:
-        ok, frame = capture.read()
-    finally:
-        capture.release()
-    if not ok:
-        raise ValueError(f"Video has no readable frames: {source}")
-    ZoneLabeler(frame, source.stem, output).run()
+    frame = cv2.imread(str(source))
+    if frame is None:
+        raise ValueError(f"Cannot read image frame: {source}")
+    ZoneLabeler(frame, camera_id, output).run()
 
 
 if __name__ == "__main__":
