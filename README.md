@@ -139,6 +139,11 @@ Mỗi video được lưu zone riêng theo ID để dễ kiểm tra tiến độ
 
 ## 5. Phase 4 — Calibration và vận tốc
 
+Có GUI nhập điểm ảnh và số đo thực: `python data/data-labelling/calibration_tool.py`.
+Xem [hướng dẫn calibration GUI](data/data-labelling/README.md) về thứ tự góc,
+ngưỡng sai số, ngoại suy và cách chuyển JSON sang camera YAML. GUI yêu cầu số đo
+mét của mặt đường; nó không tự suy ra kích thước thực từ ảnh.
+
 Với mỗi sequence, lưu tọa độ thực đã đo bằng **mét** tại `data/ua_detrac/world_points/world_points_<VIDEO_ID>.json`. Các điểm ảnh và điểm thực phải có cùng thứ tự, gồm ít nhất 4 điểm không thẳng hàng trên mặt đường. Không tự suy ra khoảng cách thực từ bbox.
 
 ```bash
