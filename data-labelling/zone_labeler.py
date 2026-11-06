@@ -13,7 +13,6 @@ COLORS = ((0, 180, 255), (0, 230, 90), (255, 180, 0), (220, 80, 220))
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VIDEO_DIR = REPO_ROOT / "data" / "ua_detrac"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "configs" / "zones"
-DEFAULT_OUTPUT = DEFAULT_OUTPUT_DIR / "common.yaml"
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
 
 
@@ -168,18 +167,32 @@ def discover_videos(video_dir):
     )
 
 
-def first_video(video_dir):
+def choose_video(video_dir, output_dir):
     videos = discover_videos(video_dir)
     if not videos:
         raise FileNotFoundError(f"No video files found in: {video_dir}")
-    return videos[0]
+    print("Chọn video để kẻ zone:")
+    for index, video in enumerate(videos, 1):
+        status = " --done" if (Path(output_dir) / f"{video.stem}.yaml").is_file() else ""
+        print(f"  {index}. {video.stem}{status}")
+    while True:
+        answer = input(f"Nhập số video (1-{len(videos)}): ").strip()
+        try:
+            index = int(answer)
+        except ValueError:
+            print("Vui lòng nhập một số hợp lệ.")
+            continue
+        if 1 <= index <= len(videos):
+            return videos[index - 1]
+        print(f"Số video phải nằm trong khoảng 1-{len(videos)}.")
 
 
 def main():
     parse_args()
-    source = first_video(DEFAULT_VIDEO_DIR)
-    print(f"Dùng frame mẫu từ: {source}")
-    print(f"File zone dùng chung sẽ lưu tại: {DEFAULT_OUTPUT}")
+    source = choose_video(DEFAULT_VIDEO_DIR, DEFAULT_OUTPUT_DIR)
+    output = DEFAULT_OUTPUT_DIR / f"{source.stem}.yaml"
+    print(f"Dùng frame đầu tiên từ: {source}")
+    print(f"File zone sẽ lưu tại: {output}")
     capture = cv2.VideoCapture(str(source))
     if not capture.isOpened():
         raise FileNotFoundError(f"Cannot open video source: {source}")
@@ -189,7 +202,7 @@ def main():
         capture.release()
     if not ok:
         raise ValueError(f"Video has no readable frames: {source}")
-    ZoneLabeler(frame, None, DEFAULT_OUTPUT).run()
+    ZoneLabeler(frame, source.stem, output).run()
 
 
 if __name__ == "__main__":
