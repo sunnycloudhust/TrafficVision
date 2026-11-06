@@ -36,6 +36,10 @@ calibration:
     - 30
   reprojection_error_m: 1.478005144901578e-14
 speed:
-  smoothing_window: 5
-  min_track_observations: 3
+  sigma_px: 1.0
+  accel_std: 2.0
+  gate_chi2: 16.0
+  min_observations: 8
+  max_speed_std_kmh: 4.0
+  max_gap_seconds: 0.5
   max_reasonable_kmh: 160

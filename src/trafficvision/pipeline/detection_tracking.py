@@ -1,5 +1,6 @@
 from ..geometry.coordinates import bottom_center
 from ..speed.estimator import SpeedEstimator
+from ..speed.kalman_speed import KalmanSpeedEstimator, pixel_jacobian
 from ..zones.zone_manager import ZoneManager
 
 
@@ -8,7 +9,7 @@ class DetectionTrackingPipeline:
         self.detector, self.tracker = detector, tracker
         self.zones = zones or ZoneManager()
         self.homography = homography
-        self.speed = SpeedEstimator(**(speed_config or {}))
+        self.speed = KalmanSpeedEstimator(**(speed_config or {}))
 
     def process(self, image, timestamp, frame=None):
         detections = self.zones.detect(self.detector, image)
@@ -21,8 +22,11 @@ class DetectionTrackingPipeline:
             measure = any(z.measure_speed for z in assigned) if self.zones.zones else True
             if self.homography is not None and measure:
                 try:
-                    world = self.homography.project(bottom_center(track.box))
-                    kmh = self.speed.update(track.track_id, world, timestamp)
+                    point = bottom_center(track.box)
+                    world = self.homography.project(point)
+                    kmh = self.speed.update(
+                        track.track_id, world, timestamp, pixel_jacobian(self.homography, point)
+                    )
                 except ValueError:  # A horizon point is not a world observation.
                     self.speed.reset(track.track_id)
             else:

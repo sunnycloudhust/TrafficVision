@@ -7,7 +7,7 @@ zones:
     polygon: [[496, 80], [620, 80], [772, 260], [420, 260]]
     confidence_threshold: 0.05
     inference_scale: 1.5
-    measure_speed: true
+    measure_speed: false
   near_zone:
     polygon: [[420, 260], [772, 260], [960, 482], [960, 540], [303, 540]]
     confidence_threshold: 0.05
