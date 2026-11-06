@@ -18,10 +18,12 @@ def test_speed_metric_zero_ground_truth():
     result = speed_metrics([0, 10], [1, 12])
     assert result["mae"] == 1.5 and result["mape"] == 20
 
+
 def test_kalman_constant_speed_and_jump_rejection():
     from trafficvision.speed.kalman_speed import KalmanSpeedEstimator
+
     est = KalmanSpeedEstimator(sigma_px=0.1)
     out = [est.update(1, [0.0, 10.0 * i / 25], i / 25) for i in range(30)]  # 10 m/s
-    assert out[2] is None                      # chưa đủ quan sát
+    assert out[2] is None  # chưa đủ quan sát
     assert out[-1] == pytest.approx(36, abs=0.5)
     assert est.update(1, [0.0, 500.0], 30 / 25) is None  # nhảy ID bị loại

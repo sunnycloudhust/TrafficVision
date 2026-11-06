@@ -20,7 +20,7 @@ python -m pip install -e ".[train,tracking-eval,dev]"
 # Ultralytics có thể cài opencv-python; cài contrib cuối để Selective Search có ximgproc.
 python -m pip install --force-reinstall --no-deps opencv-contrib-python-headless==4.10.0.84
 
-python scripts/utils.py --help
+python scripts/run_trafficvision.py --help
 python -m pytest -q
 ```
 
@@ -78,19 +78,19 @@ data:
 Sửa `data.manifest`, `training.device` (`cpu`/`cuda`), batch size và đường dẫn output trong YAML. Tất cả đường dẫn dữ liệu/output tính từ thư mục repo; `extends` tính tương đối với file YAML đang chứa nó.
 
 ```bash
-python scripts/utils.py train --model faster_rcnn --init random \
+python scripts/run_trafficvision.py train --model faster_rcnn --init random \
   --config configs/experiments/faster_rcnn_scratch.yaml
 
-python scripts/utils.py train --model fast_rcnn --init random \
+python scripts/run_trafficvision.py train --model fast_rcnn --init random \
   --config configs/experiments/fast_rcnn_scratch.yaml
 
-python scripts/utils.py train --model rcnn --init random \
+python scripts/run_trafficvision.py train --model rcnn --init random \
   --config configs/experiments/rcnn_scratch.yaml
 
-python scripts/utils.py train --model rtdetr --init random \
+python scripts/run_trafficvision.py train --model rtdetr --init random \
   --config configs/experiments/rtdetr_scratch.yaml
 
-python scripts/utils.py train --model yolov8 --init pretrained \
+python scripts/run_trafficvision.py train --model yolov8 --init pretrained \
   --config configs/experiments/yolov8_baseline.yaml
 ```
 
@@ -99,10 +99,10 @@ Custom detectors tự lắp kiến trúc; mặc định CNN nhỏ train từ ran
 Custom runs lưu `config.yaml`, `metrics.jsonl`, `last.pt`, `best.pt` (chọn theo validation COCO mAP). Checkpoint gồm model params, state, optimizer, scheduler, epoch, seed/config và RNG; resume tại ranh giới epoch:
 
 ```bash
-python scripts/utils.py train --config configs/experiments/faster_rcnn_scratch.yaml \
+python scripts/run_trafficvision.py train --config configs/experiments/faster_rcnn_scratch.yaml \
   --resume outputs/faster_rcnn/last.pt
 
-python scripts/utils.py evaluate --model faster_rcnn \
+python scripts/run_trafficvision.py evaluate --model faster_rcnn \
   --checkpoint outputs/faster_rcnn/best.pt --split test \
   --config configs/evaluation/ua_detrac.yaml --output outputs/evaluation/faster_rcnn.json
 ```
@@ -118,7 +118,7 @@ Tracker config ở `configs/trackers/`: `sort`, `bytetrack`, `botsort`. Đổi t
 Để đo tracking trên **toàn split**, không cần ghép ảnh thành MP4:
 
 ```bash
-python scripts/utils.py track-dataset --model faster_rcnn \
+python scripts/run_trafficvision.py track-dataset --model faster_rcnn \
   --checkpoint outputs/faster_rcnn/best.pt --tracker bytetrack --split test \
   --config configs/evaluation/ua_detrac.yaml --output outputs/evaluation/faster_bytetrack.csv
 ```
@@ -140,10 +140,10 @@ python scripts/calibrate_camera.py \
 
 Desktop có OpenCV GUI có thể thay `--image-points` bằng `--interactive`. Colab/headless dùng JSON. Không cài đồng thời nhiều biến thể OpenCV khi muốn dùng GUI; xem hướng dẫn môi trường. Kiểm tra phép chiếu trên điểm độc lập: reprojection thấp ở đúng bốn điểm fit không chứng minh calibration chính xác.
 
-Speed estimator hồi quy vị trí thế giới theo timestamp trong cửa sổ, trả `N/A` khi thiếu quan sát, thời gian trùng/ngược, gap dài, bước nhảy quá lớn hoặc chưa có homography. Chỉ dùng quan sát detection hiện tại; không lấy vị trí track dự đoán qua occlusion làm phép đo.
+Pipeline dùng Kalman constant-velocity trên tọa độ mét; Jacobian homography truyền nhiễu pixel sang world coordinates. Speed trả `N/A` khi chưa đủ quan sát, uncertainty cao, timestamp lỗi, gap dài, innovation bị loại hoặc chưa có homography. Các tham số nằm trong `speed` của camera YAML; module hồi quy cũ vẫn được giữ để đối chiếu. Chỉ dùng quan sát detection hiện tại; không lấy vị trí track dự đoán qua occlusion làm phép đo.
 
 ```bash
-python scripts/utils.py evaluate-speed --pairs /path/to/matched_speed_pairs.csv
+python scripts/run_trafficvision.py evaluate-speed --pairs /path/to/matched_speed_pairs.csv
 ```
 
 CSV cần cặp đã đối chiếu cùng phương tiện/thời gian: `gt_kmh,predicted_kmh`. Chỉ báo cáo MAE/RMSE/MAPE thực khi có GT speed; MAPE bỏ các GT bằng 0.
@@ -151,7 +151,7 @@ CSV cần cặp đã đối chiếu cùng phương tiện/thời gian: `gt_kmh,p
 ## 6. Phase 5 — Video demo
 
 ```bash
-python scripts/utils.py demo --source /path/to/traffic.mp4 \
+python scripts/run_trafficvision.py demo --source /path/to/traffic.mp4 \
   --model faster_rcnn --checkpoint outputs/faster_rcnn/best.pt --tracker bytetrack \
   --camera-config configs/cameras/MVI_20011.yaml --zone-config configs/zones/MVI_20011.yaml \
   --output outputs/demo/faster_bytetrack.mp4
@@ -160,7 +160,7 @@ python scripts/utils.py demo --source /path/to/traffic.mp4 \
 Có thể bỏ camera/zone config để xem detection + tracking, speed `N/A`. Video pretrained chưa fine-tune:
 
 ```bash
-python scripts/utils.py demo --source /path/to/traffic.mp4 --model yolov8 \
+python scripts/run_trafficvision.py demo --source /path/to/traffic.mp4 --model yolov8 \
   --config configs/models/yolov8.yaml --tracker bytetrack --output outputs/demo/yolo_coco.mp4
 ```
 
@@ -185,4 +185,4 @@ python scripts/compare_runs.py outputs/evaluation/faster_rcnn.json \
 | `pipeline/`, `visualization/` | Điều phối, video và export |
 | `configs/`, `scripts/`, `tests/` | Thí nghiệm, công cụ và regression tests |
 
-Nhóm có thể chia theo các hàng trên; mỗi model/tracker phải giữ interface chung. Không commit dataset, checkpoint, token, output hoặc `.venv`. Workspace chưa được khởi tạo Git; nhóm tự kết nối repository của mình.
+Nhóm có thể chia theo các hàng trên; mỗi model/tracker phải giữ interface chung. Không commit dataset, checkpoint, token, output hoặc `.venv`. Làm việc trên branch riêng và gửi pull request để nhóm review trước khi merge.

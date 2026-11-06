@@ -72,13 +72,20 @@ class ZoneLabeler:
         )
 
     def to_frame_point(self, x, y):
-        return [round(x / self.display_scale), round(y / self.display_scale)]
+        return [
+            min(max(round(x / self.display_scale), 0), self.width - 1),
+            min(max(round(y / self.display_scale), 0), self.height - 1),
+        ]
 
     def on_click(self, event, x, y, _flags, _param):
         if event == cv2.EVENT_LBUTTONDOWN:
             self.current.append(self.to_frame_point(x, y))
 
     def save(self):
+        if self.current:
+            raise ValueError("Finish the current polygon with Enter before saving.")
+        if not self.zones:
+            raise ValueError("Create at least one zone before saving.")
         config = {
             "camera_id": self.camera_id,
             "frame_size": [self.width, self.height],
@@ -98,13 +105,24 @@ class ZoneLabeler:
         self.output.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
         print(f"Saved {len(self.zones)} zones to {self.output}")
 
+    def finish_zone(self, name):
+        name = name.strip()
+        if not name or name in {zone["name"] for zone in self.zones}:
+            raise ValueError("Zone name must be nonempty and unique.")
+        points = np.asarray(self.current, dtype=np.float32).reshape(-1, 2)
+        if (
+            len(points) < 3
+            or len(np.unique(points, axis=0)) != len(points)
+            or abs(cv2.contourArea(points)) < 1e-6
+        ):
+            raise ValueError("A zone needs >=3 distinct points with nonzero area.")
+        self.zones.append({"name": name, "polygon": self.current.copy()})
+        self.current.clear()
+
     def run(self):
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.setMouseCallback(WINDOW_NAME, self.on_click)
-        print(
-            "Click points; Enter=finish zone, U=undo, C=clear current, "
-            "S=save, Q/Esc=quit."
-        )
+        print("Click points; Enter=finish zone, U=undo, C=clear current, " "S=save, Q/Esc=quit.")
         while True:
             cv2.imshow(WINDOW_NAME, self.display_frame())
             key = cv2.waitKey(30) & 0xFF
@@ -119,16 +137,15 @@ class ZoneLabeler:
                     print("A zone needs at least 3 points.")
                     continue
                 name = input(f"Zone name ({len(self.zones) + 1}): ").strip()
-                if not name:
-                    print("Zone name cannot be empty.")
-                    continue
-                if name in {zone["name"] for zone in self.zones}:
-                    print(f"Zone already exists: {name}")
-                    continue
-                self.zones.append({"name": name, "polygon": self.current.copy()})
-                self.current.clear()
+                try:
+                    self.finish_zone(name)
+                except ValueError as exc:
+                    print(exc)
             elif key == ord("s"):
-                self.save()
+                try:
+                    self.save()
+                except ValueError as exc:
+                    print(exc)
         cv2.destroyAllWindows()
 
 

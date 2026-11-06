@@ -138,5 +138,7 @@ def main(argv=None):
             speed_metrics([float(r["gt_kmh"]) for r in rows], [float(r["predicted_kmh"]) for r in rows]),
             args.output,
         )
+
+
 if __name__ == "__main__":
     main()

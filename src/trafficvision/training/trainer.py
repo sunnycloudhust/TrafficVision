@@ -150,7 +150,9 @@ def train(config, model_name=None, init=None, resume=None):
             current = metrics["map"]
             improved = current > best
             best = max(current, best)
-            record = dict(epoch=epoch, loss=losses / steps, lr=optimizer.param_groups[0]["lr"], metrics=metrics)
+            record = dict(
+                epoch=epoch, loss=losses / steps, lr=optimizer.param_groups[0]["lr"], metrics=metrics
+            )
             epoch_progress.set_postfix(loss=f"{record['loss']:.4f}", val_map=f"{current:.4f}")
             with (output / "metrics.jsonl").open("a") as handle:
                 handle.write(json.dumps(record) + "\n")

@@ -1,5 +1,4 @@
 from ..geometry.coordinates import bottom_center
-from ..speed.estimator import SpeedEstimator
 from ..speed.kalman_speed import KalmanSpeedEstimator, pixel_jacobian
 from ..zones.zone_manager import ZoneManager
 

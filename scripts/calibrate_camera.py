@@ -10,8 +10,9 @@ import sys
 
 import cv2
 import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from trafficvision.geometry.homography import Homography  
+from trafficvision.geometry.homography import Homography  # noqa: E402
 
 
 def main():
@@ -64,8 +65,15 @@ def main():
         calibration=dict(
             image_points=points, world_points=world, reprojection_error_m=homography.reprojection_error_m
         ),
-        speed=dict(sigma_px=1.0, accel_std=2.0, gate_chi2=16.0, min_observations=8,
-            max_speed_std_kmh=4.0, max_gap_seconds=0.5, max_reasonable_kmh=160),
+        speed=dict(
+            sigma_px=1.0,
+            accel_std=2.0,
+            gate_chi2=16.0,
+            min_observations=8,
+            max_speed_std_kmh=4.0,
+            max_gap_seconds=0.5,
+            max_reasonable_kmh=160,
+        ),
     )
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

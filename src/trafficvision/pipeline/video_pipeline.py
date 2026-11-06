@@ -56,11 +56,15 @@ def run_video(
                 ok, frame = cap.read()
                 if not ok:
                     break
-                timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000 if timestamp_mode == "pts" else frame_id / fps
+                timestamp = (
+                    cap.get(cv2.CAP_PROP_POS_MSEC) / 1000 if timestamp_mode == "pts" else frame_id / fps
+                )
                 if not math.isfinite(timestamp) or (
                     previous_timestamp is not None and timestamp <= previous_timestamp
                 ):
-                    raise ValueError("Non-monotonic/missing PTS; use --timestamp-mode fps for constant-FPS video")
+                    raise ValueError(
+                        "Non-monotonic/missing PTS; use --timestamp-mode fps for constant-FPS video"
+                    )
                 previous_timestamp = timestamp
                 frame_id += 1
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -70,7 +74,7 @@ def run_video(
                 writer.write(annotate(frame, results, pipeline.zones, processing_fps))
                 exporter.write(video_id or Path(str(source)).stem, frame_id, timestamp, results)
                 progress.update(1)
-                progress.set_postfix(fps=f"{processing_fps:.1f}")
+                progress.set_postfix(fps=f"{processing_fps:.1f}", refresh=False)
         if frame_id == 0:
             raise ValueError("Source has no readable video frames")
         summary = dict(
