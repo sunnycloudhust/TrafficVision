@@ -7,9 +7,10 @@ python data/data-labelling/calibration_tool.py
 ```
 
 Select a camera, click at least four non-collinear points on the road, then
-choose a geometry mode. For a rectangle, click its four corners in order around
-the shape and enter its length and width in meters. For another shape, enter
-the real distance in meters for every pair of selected points. The image
+choose a geometry mode. For a rectangle, click its four corners first in order
+around the shape and enter its length and width in meters. Each extra point only
+needs distances to the first three corners. For another shape, enter the real
+distance in meters for every pair of selected points. The image
 is shown with a 25% margin around it; clicking there records negative pixel
 coordinates or coordinates beyond the frame dimensions. Use these only for
 known geometric points whose projected image coordinates can be established.

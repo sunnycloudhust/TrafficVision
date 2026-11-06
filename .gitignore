@@ -1,28 +1,59 @@
+# Dataset payloads are large/local. Keep labelling tools and calibration point
+# annotations in Git while ignoring raw frames, archives, and other data/.
 /data/
 !/data/
 /data/*
 !/data/data-labelling/
 !/data/data-labelling/**
+!/data/ua_detrac/
+/data/ua_detrac/*
+!/data/ua_detrac/world_points/
+!/data/ua_detrac/world_points/**
+
+# Generated application and experiment output
 outputs/
 checkpoints/
 runs/
 wandb/
 tensorboard/
+
+# Downloaded media, archives, and model weights
 *.zip
 *.tar
 *.tar.gz
 *.mp4
 *.pt
 *.pth
+
+# Python bytecode, environments, caches, and build artifacts
 __pycache__/
 *.py[cod]
 .venv/
+venv/
+env/
 .env
+.env.*
+!.env.example
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
 *.egg-info/
+build/
+dist/
+htmlcov/
+.coverage
+.coverage.*
+*.log
+
+# Notebook and editor state
 .ipynb_checkpoints/
 .vscode
+.idea/
+*.swp
+*.swo
 
-# macOS
+# OS metadata
 .DS_Store
+Thumbs.db

@@ -48,6 +48,28 @@ def metric_coordinates(point_count, measured_distances):
     return coords
 
 
+def locate_from_three_anchors(anchors, distances):
+    """Locate one 2D point from distances to three non-collinear anchors."""
+    anchors = np.asarray(anchors, dtype=float)
+    distances = np.asarray(distances, dtype=float)
+    if anchors.shape != (3, 2) or distances.shape != (3,):
+        raise ValueError("Cần đúng 3 điểm mốc và 3 khoảng cách.")
+    if not np.isfinite(anchors).all() or not np.isfinite(distances).all() or np.any(distances <= 0):
+        raise ValueError("Các khoảng cách phải là số mét dương.")
+    matrix = 2 * (anchors[1:] - anchors[0])
+    if np.linalg.matrix_rank(matrix) < 2:
+        raise ValueError("Ba góc mốc phải không thẳng hàng.")
+    rhs = (
+        np.sum(anchors[1:] ** 2, axis=1)
+        - np.sum(anchors[0] ** 2)
+        + distances[0] ** 2
+        - distances[1:] ** 2
+    )
+    point = np.linalg.solve(matrix, rhs)
+    errors = np.abs(np.linalg.norm(point - anchors, axis=1) - distances)
+    return point, float(errors.max())
+
+
 class CalibrationGUI:
     def __init__(self, root):
         self.root = root
@@ -120,8 +142,11 @@ class CalibrationGUI:
         self.geometry_box.bind("<<ComboboxSelected>>", self.change_geometry_mode)
 
         self.rectangle_frame = ttk.Frame(side)
-        ttk.Label(self.rectangle_frame, text="Nhập 4 góc theo thứ tự quanh hình. P1→P2 là chiều dài.",
-                  wraplength=260).pack(anchor="w")
+        ttk.Label(
+            self.rectangle_frame,
+            text="Click 4 góc đầu theo thứ tự quanh hình. Điểm bổ sung cần khoảng cách tới P1, P2, P3.",
+            wraplength=260,
+        ).pack(anchor="w")
         ttk.Label(self.rectangle_frame, text="Chiều dài P1–P2 (m)").pack(anchor="w", pady=(5, 0))
         ttk.Entry(self.rectangle_frame, textvariable=self.rectangle_length).pack(fill="x")
         ttk.Label(self.rectangle_frame, text="Chiều rộng P2–P3 (m)").pack(anchor="w", pady=(5, 0))
@@ -183,14 +208,19 @@ class CalibrationGUI:
         self.load_camera()
 
     def change_geometry_mode(self, _event=None):
+        self.update_geometry_controls()
+        self.world = None
+        self.refresh_lists()
+
+    def update_geometry_controls(self):
         if self.geometry_mode.get() == "Hình chữ nhật":
             self.distances_frame.pack_forget()
             self.rectangle_frame.pack(fill="x", pady=4)
+            if len(self.points) > 4:
+                self.distances_frame.pack(fill="x", pady=4)
         else:
             self.rectangle_frame.pack_forget()
             self.distances_frame.pack(fill="x", pady=4)
-        self.world = None
-        self.refresh_lists()
 
     def load_camera(self):
         self.points.clear()
@@ -244,6 +274,8 @@ class CalibrationGUI:
                 self.status.set(f"P{len(self.points)} nằm ngoài ảnh: ({x}, {y}) px. Kiểm tra tọa độ ngoại suy thực tế.")
 
     def refresh_lists(self):
+        if hasattr(self, "rectangle_frame"):
+            self.update_geometry_controls()
         self.point_list.delete(0, "end")
         for i, (x, y) in enumerate(self.points, 1):
             self.point_list.insert("end", f"P{i}: ({x}, {y}) px")
@@ -291,16 +323,32 @@ class CalibrationGUI:
             ):
                 raise ValueError("Image points bị trùng hoặc thẳng hàng; hãy chọn điểm phủ một vùng 2D.")
             if self.geometry_mode.get() == "Hình chữ nhật":
-                if len(self.points) != 4:
-                    raise ValueError("Hình chữ nhật cần đúng 4 góc, click theo thứ tự quanh hình.")
+                if len(self.points) < 4:
+                    raise ValueError("Hình chữ nhật cần 4 góc đầu tiên, click theo thứ tự quanh hình.")
                 length = float(self.rectangle_length.get())
                 width = float(self.rectangle_width.get())
                 if not np.isfinite(length) or not np.isfinite(width) or length <= 0 or width <= 0:
                     raise ValueError("Nhập chiều dài và chiều rộng dương bằng mét.")
-                self.world = np.asarray(
+                corners = np.asarray(
                     [[0.0, 0.0], [length, 0.0], [length, width], [0.0, width]],
                     dtype=float,
                 )
+                self.world = corners.tolist()
+                anchor_points = corners[:3]
+                max_error = 0.0
+                for point_index in range(4, len(self.points)):
+                    required = [(anchor_index, point_index) for anchor_index in range(3)]
+                    missing = [f"P{a+1}–P{point_index+1}" for a, b in required if (a, b) not in self.distances]
+                    if missing:
+                        raise ValueError(
+                            f"Nhập khoảng cách từ P{point_index+1} tới 3 góc P1, P2, P3: "
+                            + ", ".join(missing)
+                        )
+                    measured = [self.distances[pair] for pair in required]
+                    world_point, error = locate_from_three_anchors(anchor_points, measured)
+                    self.world.append(world_point.tolist())
+                    max_error = max(max_error, error)
+                self.world = np.asarray(self.world, dtype=float)
             else:
                 self.world = metric_coordinates(len(self.points), self.distances)
             if np.linalg.matrix_rank(self.world - self.world.mean(axis=0)) < 2:
@@ -311,10 +359,16 @@ class CalibrationGUI:
             return
         self.refresh_lists()
         if self.geometry_mode.get() == "Hình chữ nhật":
-            self.status.set(
-                "Đã gán 4 world points theo hình chữ nhật: P1=(0,0), P2=(dài,0), "
-                "P3=(dài,rộng), P4=(0,rộng)."
-            )
+            if len(self.points) > 4:
+                self.status.set(
+                    f"World points đã dựng theo hình chữ nhật; mỗi điểm thêm dùng 3 khoảng cách tới "
+                    f"P1–P3. Sai lệch ba cạnh mốc lớn nhất: {max_error:.3f} m."
+                )
+            else:
+                self.status.set(
+                    "Đã gán 4 world points theo hình chữ nhật: P1=(0,0), P2=(dài,0), "
+                    "P3=(dài,rộng), P4=(0,rộng)."
+                )
         else:
             residuals = [
                 abs(float(np.linalg.norm(self.world[first] - self.world[second])) - measured)
