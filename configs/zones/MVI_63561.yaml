@@ -5,14 +5,48 @@ frame_size:
 roi_only: true
 default_threshold: 0.25
 zones:
-  far_zone1:
+  zone_1:
     polygon:
-    - - 752
-      - 21
-    - - 864
-      - 33
-    - - 635
-      - 95
+    - - 0
+      - 437
+    - - 867
+      - 96
+    - - 959
+      - 108
+    - - 959
+      - 168
+    - - 367
+      - 539
+    - - 209
+      - 539
+    - - 0
+      - 467
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_2:
+    polygon:
+    - - 861
+      - 39
+    - - 754
+      - 23
+    - - 2
+      - 191
+    - - 2
+      - 312
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_3:
+    polygon:
+    - - 399
+      - 533
+    - - 955
+      - 178
+    - - 954
+      - 391
+    - - 725
+      - 537
     confidence_threshold: 0.05
     inference_scale: 1.0
     measure_speed: true

@@ -1,10 +1,40 @@
-# TEMPLATE ONLY: calibrate this sequence with measured road points before estimating speed.
 camera_id: MVI_39311
-fps: 25
-frame_size: [960, 540]
+fps: 25.0
+frame_size:
+- 960
+- 540
 world_unit: meter
 homography:
-  matrix: null
+  matrix:
+  - - -0.13694438184820673
+    - -0.17599696222317074
+    - 77.97915109058462
+  - - -0.0069772592645444605
+    - -0.4965482843267488
+    - 138.05786619099752
+  - - -0.00023454024876319476
+    - -0.013829569084897872
+    - 0.9999999999999999
+calibration:
+  image_points:
+  - - 216.0
+    - 275.0
+  - - 643.0
+    - 269.0
+  - - 840.0
+    - 528.0
+  - - -122.0
+    - 538.0
+  world_points:
+  - - 0.0
+    - 0.0
+  - - 20.0
+    - 0.0
+  - - 20.0
+    - 20.0
+  - - 0.0
+    - 20.0
+  reprojection_error_m: 3.9432611678517415e-15
 speed:
   sigma_px: 1.0
   accel_std: 2.0

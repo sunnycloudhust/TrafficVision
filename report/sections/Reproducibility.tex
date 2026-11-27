@@ -1,0 +1,78 @@
+\section{Reproducibility and Artifact Audit}
+\label{app:repro}
+This appendix records the evidence used in the report and a practical checklist for reproducing or updating it. It does not claim to have retrained the detectors during report preparation. The reference snapshot is the Hugging Face dataset repository at commit \href{https://huggingface.co/datasets/sunnycloudhust/TrafficVision/tree/4af5adbead7219881a9c8c6a7dfa06c454d9387c}{\texttt{4af5adbe}}; the code, configurations and results cited throughout are associated with that snapshot \cite{repository}. The LaTeX report package includes small copies of the plotting script and logs used for the curve audit, not the UA-DETRAC image archives or trained checkpoints.
+
+\subsection{Project artifact map}
+\begin{table}[htbp]
+\centering
+\caption{Project artifacts relevant to this report. Paths are relative to the Hugging Face repository root.}
+\label{tab:artifact-map}
+\small
+\begin{tabular}{p{0.38\textwidth}p{0.48\textwidth}}
+\toprule
+Artifact & Purpose \\
+\midrule
+\texttt{data/ua\_detrac/splits.json} & Sequence IDs for training, validation and test. \\
+\texttt{data/ua\_detrac/shards.json} & Split metadata, counts, shard references and checksums. \\
+\texttt{configs/experiments/} & Experiment YAMLs for custom detectors and YOLO. \\
+\texttt{outputs/<run>/config.yaml} & Resolved configuration associated with a saved custom run. \\
+\texttt{outputs/<run>/metrics.jsonl} & Per-epoch training loss and validation metric records. \\
+\path{outputs/yolov8/train/results.csv} & Native YOLO training/validation records. \\
+\texttt{outputs/evaluation/*.json} & Per-run common-evaluator reports and class/size summaries. \\
+\path{outputs/evaluation/detection_comparison.csv} & Flattened summary used for Tables~\ref{tab:full} and \ref{tab:partial}. \\
+\texttt{scripts/plot\_training\_curves.py} & Aggregates the source logs and draws Fig.~\ref{fig:curves}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The source report uses numeric values from files rather than from a hand-estimated reading of figure pixels. Values were rounded to three decimals in the tables. In a new version, the team should distinguish a configuration file from evidence that a run completed: a configured number of epochs is an intention, while an epoch log and a corresponding checkpoint are evidence of recorded execution. Both still need to be interpreted with the actual data sampling and evaluation code.
+
+\subsection{Audit of the 95 curve-history rows}
+The curve aggregation script names five custom log files and one YOLO results CSV. Each row of the aggregate history has a model name, epoch, training loss, validation AP$_{50}$, validation AP$_{50:95}$ and source file. For each custom log, the script converts a zero-based recorded epoch to a one-based plotting epoch and copies the logged loss and AP values. For YOLO, it reads the native epoch number, adds the three recorded training-loss components and copies native validation AP fields.
+
+During this report review, all 95 aggregate rows were matched to their indicated original source record by epoch. The three plotted/recorded fields were checked with an absolute tolerance of $5.1\times10^{-6}$ to account for the aggregate CSV being rounded to five decimal places. No mismatching field was found. This audit establishes provenance of the numbers in the aggregate CSV and the plotting script's transformation. It does not prove that the underlying training or evaluation was error-free, that the PNG was independently regenerated, or that the curves use comparable datasets.
+
+The validation frame counts in the custom logs are summarized in Table~\ref{tab:curve-subsets}. The negative per-class AP markers refer to unavailable category values, not negative accuracy. The table lists the values visible in the first and last recorded epochs; it should not be generalized to every epoch without reading the full logs.
+\begin{table}[htbp]
+\centering
+\caption{Recorded custom-model per-epoch validation subsets used by the curve script.}
+\label{tab:curve-subsets}
+\begin{tabular}{lrl}
+\toprule
+Run & Frames/epoch & Unavailable classes at first/last epoch \\
+\midrule
+Faster R-CNN, scratch & 1,200 & Others \\
+Faster R-CNN, ImageNet & 1,200 & Others \\
+RT-DETR-inspired & 1,200 & Last epoch: others \\
+Fast R-CNN & 100 & Bus, others \\
+R-CNN & 50 & Bus, others \\
+\bottomrule
+\end{tabular}
+\end{table}
+The YOLO curve is read from its native training CSV, and the associated project configuration requests stride-five train/validation export; the exact native validation image count should be confirmed from the exported dataset or trainer logs before publication.
+
+\subsection{Reproduction checklist for detection}
+\begin{enumerate}
+\item Select a fixed repository commit, install compatible Python, PyTorch, Torchvision and evaluation dependencies, and record the GPU and library versions. Confirm that CUDA is available if using the published CUDA configuration.
+\item Obtain UA-DETRAC according to its distribution terms. Use the manifest, split and class mapping corresponding to the intended experiment. Confirm sequence lists, annotation coverage, image dimensions, ignored rectangles and class labels through visual inspection of sampled annotated frames.
+\item Select the exact experiment YAML and initialization mode. Log the actual dataset/export size, epoch count, processed batches, seed, optimizer and model configuration. A fine-tuned checkpoint and a scratch checkpoint are distinct experimental conditions.
+\item Save the checkpoint and the criterion used to select it. If validation batches are capped, save the evaluated frame IDs as well. Training-loss values with different definitions should not be interpreted on a shared absolute scale.
+\item Evaluate selected checkpoints under the same evaluator, split, image preprocessing, class mapping and ignore policy. Report the number of sequences, frames and objects, including which classes have valid reference annotations.
+\item Use validation data to choose thresholds and model variants. Run the final selected settings once on the held-out test split and preserve the resulting raw JSON/CSV with the code revision.
+\item Repeat with independent random seeds where feasible and report the range or uncertainty. Do not infer uncertainty from a single learning curve.
+\end{enumerate}
+
+\subsection{Reproduction checklist for tracking}
+Choose a set of videos with trajectory IDs and preserve frame order. Run each detector--tracker combination with recorded confidence and association thresholds. Reset tracker state between sequences; ensure predicted and reference timestamps and frame indices refer to the same underlying images. Evaluate identity-aware metrics using a consistent ignore policy and report failures such as skipped frames or missing reference IDs.
+
+For controlled tracker comparisons, hold the detector checkpoint and detections fixed where practical. For controlled detector comparisons, hold the downstream tracker settings fixed, while acknowledging that score calibration may differ. Tracking results should report the exact combination, not only a detector or tracker name. If using the project class-aware protocol rather than the official benchmark protocol, name that protocol and avoid claiming an official leaderboard score.
+
+\subsection{Reproduction checklist for speed}
+Record the original camera resolution, frame rate or timestamp source, and any cropping, resizing or stabilization. Select a road-plane measurement zone and document camera-specific calibration points with real-world units. Fit the homography using non-degenerate correspondences, and evaluate it on independent points not used to estimate it. Avoid areas near the geometric horizon or areas where a box bottom-centre is frequently occluded.
+
+Match speed estimates to an independent reference with a documented time interval and vehicle identity. Report the number of matched observations and excluded cases, and compute MAE/RMSE in km/h only when ground-truth speeds are available. The confidence gate, maximum allowed gap and filtering parameters affect which observations receive numeric outputs; reporting only errors on accepted tracks without reporting coverage can bias the apparent quality. Report both coverage and error, and inspect failure cases, including ID switches and camera geometry changes.
+
+\subsection{Report-editing notes for the project team}
+The author names and affiliation on the title page are placeholders because the unrelated example template does not identify this project team. Replace them with confirmed information before submission. The tables reflect the inspected snapshot and may become outdated after new experiments. The project includes configs and reference data for multiple cameras, but this report does not treat any of them as independently verified physical calibration without evidence from the team.
+
+The validation splits and AP numbers are useful for explaining existing work, but final submission requirements may call for additional test-set and tracking results. If such artifacts exist outside the inspected repository snapshot, add their source paths, split and protocol before incorporating the numbers. A concise figure of a genuinely calibrated test scene would be valuable if the team can provide one, clearly marked with camera ID, chosen reference points and measurement provenance.

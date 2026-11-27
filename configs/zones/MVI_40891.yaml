@@ -1,0 +1,61 @@
+camera_id: MVI_40891
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  zone_1:
+    polygon:
+    - - 608
+      - 50
+    - - 791
+      - 69
+    - - 515
+      - 276
+    - - 144
+      - 226
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_2:
+    polygon:
+    - - 598
+      - 51
+    - - 454
+      - 39
+    - - 0
+      - 135
+    - - 0
+      - 207
+    - - 145
+      - 223
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_3:
+    polygon:
+    - - 796
+      - 70
+    - - 862
+      - 76
+    - - 716
+      - 243
+    - - 588
+      - 226
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_4:
+    polygon:
+    - - 5
+      - 217
+    - - 5
+      - 533
+    - - 952
+      - 535
+    - - 953
+      - 358
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true

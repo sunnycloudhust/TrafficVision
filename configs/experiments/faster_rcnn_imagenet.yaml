@@ -1,0 +1,14 @@
+extends: [base.yaml, ../models/faster_rcnn.yaml]
+model:
+  name: faster_rcnn
+  init: imagenet
+  params:
+    backbone: resnet18
+training:
+  output: outputs/faster_rcnn_imagenet
+  epochs: 15
+  batch_size: 8
+  lr: 0.0005
+  lr_step: 5
+  max_steps: 1000
+  validation_batches: 150

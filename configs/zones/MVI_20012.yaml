@@ -1,0 +1,20 @@
+camera_id: MVI_20012
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  zone_1:
+    polygon:
+    - - 463
+      - 96
+    - - 647
+      - 95
+    - - 948
+      - 430
+    - - 352
+      - 425
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true

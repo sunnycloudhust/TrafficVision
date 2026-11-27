@@ -1,0 +1,37 @@
+camera_id: MVI_63521
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  zone_1:
+    polygon:
+    - - 959
+      - 187
+    - - 756
+      - 18
+    - - 338
+      - 20
+    - - 0
+      - 314
+    - - 0
+      - 380
+    - - 959
+      - 377
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_2:
+    polygon:
+    - - 3
+      - 393
+    - - 954
+      - 382
+    - - 951
+      - 532
+    - - 5
+      - 534
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true

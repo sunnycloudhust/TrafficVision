@@ -27,6 +27,7 @@ def main(argv=None):
     evaluate.add_argument("--checkpoint", required=True)
     evaluate.add_argument("--split", choices=["val", "test"], default="test")
     evaluate.add_argument("--device", default="cpu")
+    evaluate.add_argument("--max-batches", type=int, default=None)
     evaluate.add_argument("--output", default="outputs/evaluation/detection.json")
     demo = sub.add_parser("demo")
     demo.add_argument("--source", required=True)
@@ -72,7 +73,7 @@ def main(argv=None):
 
         config = load_config(args.config)
         detector = load_detector(args.model, args.checkpoint, config, args.device, confidence=0.0)
-        result = evaluate_detector(detector, data_loader(config, args.split))
+        result = evaluate_detector(detector, data_loader(config, args.split), max_batches=args.max_batches)
         result.update(model=args.model, checkpoint=args.checkpoint, split=args.split)
         write_result(result, args.output)
     elif args.command == "demo":

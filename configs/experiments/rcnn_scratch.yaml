@@ -2,3 +2,7 @@ extends: [base.yaml, ../models/rcnn.yaml]
 training:
   output: outputs/rcnn
   batch_size: 1
+  epochs: 10
+  lr_step: 4
+  max_steps: 200
+  validation_batches: 50

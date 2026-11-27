@@ -1,0 +1,11 @@
+\begin{frontmatter}
+\title{TrafficVision: Vehicle Detection, Multi-Object Tracking and Calibrated Speed Estimation}
+\author{TrafficVision Project Team}
+\address{Deep Learning Course Project}
+\begin{abstract}
+Traffic surveillance requires both reliable vehicle detections and consistent object identities over time. Estimating physical speed adds a separate geometric requirement: image positions must be related to measured points on the road. This report presents TrafficVision, a modular pipeline for vehicle detection, multi-object tracking, polygon-based regions of interest and homography-based speed estimation. The project uses the UA-DETRAC vehicle dataset and provides custom R-CNN-family and compact Transformer-inspired detectors alongside a YOLOv8 baseline. Its published split contains 51 training, 9 validation and 40 test sequences. On the available 10,260-frame validation evaluation, fine-tuned YOLOv8n achieved an AP of 0.750 at IoU 0.50 and 0.564 averaged over IoU thresholds from 0.50 to 0.95; a Faster R-CNN variant with an ImageNet-initialized ResNet-18 backbone achieved 0.719 and 0.507, respectively. These validation results reflect different initializations and training budgets and are not official test-set results. Tracking and metric speed are implemented as downstream components, but the inspected artifacts do not establish tracking benchmark scores or ground-truth speed error. The system therefore reports speed only when a camera-specific metric calibration is available, and its physical accuracy remains to be verified against independent measurements.
+\end{abstract}
+\begin{keyword}
+Vehicle detection \sep multi-object tracking \sep UA-DETRAC \sep homography \sep speed estimation \sep deep learning
+\end{keyword}
+\end{frontmatter}

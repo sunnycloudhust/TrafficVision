@@ -1,0 +1,46 @@
+\section{Evaluation Design and Interpretation}
+\label{sec:evaluation-protocol}
+\subsection{Why sequence-level splitting matters}
+Traffic video frames are highly correlated. Two neighboring frames often contain the same cars, road background and lighting conditions. If frames from one sequence are randomly scattered between train and test, a model may encounter nearly identical scenes in both sets. This can make a frame-level test appear stronger than performance on a genuinely unseen sequence. The project therefore stores sequence IDs by split and validates that an ID is not shared across splits.
+
+The split still needs interpretation. The published manifest lists 100 sequences, but sequence-level separation alone does not establish that every camera or physical location is independent across splits. If multiple sequences show the same location, the team should examine that relationship before claiming generalization to unseen cameras. The project also includes a 40-sequence test split; its existence is not evidence that all reported detector metrics use it. The published detection comparison is explicitly labelled validation.
+
+\subsection{Detection matching and confusion counts}
+At a given confidence threshold and IoU threshold, detection predictions can be evaluated by ordering them by confidence, matching each prediction to a previously unmatched ground-truth box of the same class, and counting successful and unsuccessful assignments. True positives (TP) are matched predictions; false positives (FP) are unmatched predictions; false negatives (FN) are ground-truth objects not matched by a qualifying prediction. The project precision/recall implementation uses this class-aware greedy matching at IoU 0.5 and confidence 0.25, after its ignore-region filtering.
+
+\begin{equation}
+\operatorname{Precision}=\frac{TP}{TP+FP},\qquad
+\operatorname{Recall}=\frac{TP}{TP+FN}.
+\end{equation}
+Precision asks what fraction of accepted predictions are correct; recall asks what fraction of labelled objects were recovered. Lowering a confidence threshold can add true positives and false positives at the same time. A detector can achieve a high recall while making many extra predictions, as illustrated by the compact Transformer run's published fixed-threshold results. Precision and recall at one operating point do not describe the entire detector behavior.
+
+The ignore policy also affects the counts. An ignored road area may contain unlabelled or partially annotated objects; treating every such prediction as false positive can distort the comparison. Conversely, a policy that removes too many predictions may overstate performance. TrafficVision filters predictions by whether their box centres fall in the configured ignore rectangle, with a same-class positive-match exception. This is a documented project policy and should be kept identical across the compared detectors.
+
+\subsection{Average precision and COCO-style summaries}
+Average precision (AP) summarizes a precision--recall curve obtained by changing the score threshold. AP$_{50}$ uses an IoU criterion of 0.50. The reported AP$_{50:95}$ aggregates AP at IoU thresholds from 0.50 to 0.95 in 0.05 increments using the project's TorchMetrics/COCO implementation. A higher IoU requirement demands closer spatial alignment between a predicted and a reference box. The per-class values are aggregated by the metric implementation over evaluable categories; a category with no relevant ground truth can be reported as unavailable, represented as $-1$ in the underlying records. It must not be silently treated as AP zero or as evidence of good performance for that category.
+
+The source figure's per-epoch AP histories show why the evaluated class set matters. In the logged first and last Faster R-CNN validation epochs, the value for \texttt{others} is unavailable; the Fast R-CNN and R-CNN logs have unavailable values for \texttt{bus} and \texttt{others} in those epochs. Their per-epoch curve values therefore cannot be assumed to average over the same four-class population. This issue is independent of whether the curve values were faithfully copied from the original log files: a perfectly reproduced figure can still combine incompatible experimental quantities.
+
+The full validation reports contain 10,260 frames for five models. The partial reports contain 400 frames for Fast R-CNN and R-CNN. Equal frame counts alone would not prove that subsets are identical, since sequence ordering and composition also matter; when possible, record exact frame IDs and a dataset manifest checksum. The current run-specific table is informative as an artifact summary, not a controlled leaderboard.
+
+\subsection{Tracking metrics}
+Tracking evaluation requires ground-truth trajectories aligned by sequence and frame. A trajectory contains identities as well as boxes, so simply counting visually distinct boxes or printed IDs on a demo cannot quantify ID switches or trajectory fragmentation. A tracker that outputs many correct boxes but repeatedly changes the identity attached to the same car may have reasonable detection quality and poor identity consistency.
+
+The project includes an interface to TrackEval for metrics such as HOTA, IDF1 and MOTA. IDF1 summarizes identity precision and recall after associating predicted and ground-truth identities over the sequence. MOTA incorporates false positives, false negatives and identity switches relative to the number of ground-truth observations; it can be negative when errors exceed the number of reference observations. HOTA combines detection and association behavior across localization thresholds. Definitions, preprocessing and ignored-region handling must be documented before comparing scores across evaluators or benchmark leaderboards.
+
+These are supported evaluation methods, not numerical results in the inspected artifacts. The project-specific class-aware IoU and ignore handling are not automatically equivalent to the official UA-DETRAC PR-MOTA protocol. The detector, tracker, thresholds, sequence IDs, frame range and evaluator version must accompany any future reported tracking scores.
+
+\subsection{Speed metrics and their prerequisites}
+For paired predicted and independently measured ground-truth speeds $\widehat v_i$ and $v_i$, mean absolute error (MAE) and root mean squared error (RMSE) are
+\begin{equation}
+\operatorname{MAE}=\frac{1}{N}\sum_{i=1}^{N}|\widehat v_i-v_i|,\quad
+\operatorname{RMSE}=\sqrt{\frac{1}{N}\sum_{i=1}^{N}(\widehat v_i-v_i)^2}.
+\end{equation}
+Mean absolute percentage error is meaningful only where the denominator $v_i$ is nonzero; it can become unstable for very small true speeds. The report should state the unit (km/h), how speeds were synchronized, how vehicles were matched, and whether the measurements are instantaneous or averages over road segments. An error computed on mismatched vehicles or different time intervals is not a valid measure of the estimator.
+
+Reprojection error on the four calibration correspondences is not equivalent to speed error. It measures the agreement of a fitted geometric mapping with selected points, while speed additionally depends on temporal accuracy, track identity, road-plane approximation and detector noise. Independent calibration check points and speed ground truth answer different questions and both are useful.
+
+\subsection{Latency, memory and reproducibility}
+The comparison CSV includes detector-adapter timing, parameter counts and allocated GPU memory. The evaluator times prediction calls; the resulting FPS should not be described as end-to-end video throughput when video decoding, tracking, drawing and encoding are outside that timer. A defensible runtime experiment identifies the hardware, model weights, input dimensions, batch size, precision, software versions, warm-up, synchronization policy and number of measured samples.
+
+Experiment reproducibility also requires preserving the split, source revision, run config, initialization mode, random seed, optimizer settings, checkpoint-selection rule and exact evaluation artifacts. The report uses the recorded seed and configs without claiming multiple independent trials or statistical significance. The supplied plotting figure contains individual runs, not mean and standard deviation over repeated runs.

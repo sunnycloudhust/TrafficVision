@@ -1,7 +1,12 @@
 extends: [base.yaml, ../models/yolov8.yaml]
+data:
+  yolo_stride: 5
+  yolo_splits: [train, val]
 model:
   label_space: ua_detrac
 training:
   output: outputs/yolov8
-  batch_size: 8
+  epochs: 20
+  batch_size: 16
   lr: 0.001
+

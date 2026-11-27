@@ -1,0 +1,74 @@
+\section{Detector Architectures and Learning Objectives}
+\label{sec:detector-details}
+This section explains the detector families and their project-specific implementation choices. The models share an output contract, but their internal feature extraction and proposal mechanisms differ. The published comparison should be read as an evaluation of the actual configurations, not as a general ranking of the corresponding papers.
+
+\subsection{Bounding boxes, class labels and intersection over union}
+An image with width $W$ and height $H$ contains zero or more objects. A ground-truth object is represented by a foreground label $c\in\{1,2,3,4\}$ and a bounding box $b=(x_1,y_1,x_2,y_2)$. The detector produces a set of predicted boxes, labels and confidence scores. Predictions and targets must refer to the same original image coordinate system before evaluating or tracking. Resizing, cropping and padding are internal processing operations; the outputs supplied to the tracker must be mapped back.
+
+For two boxes $A$ and $B$, intersection over union (IoU) measures their overlap:
+\begin{equation}
+\operatorname{IoU}(A,B)=\frac{|A\cap B|}{|A\cup B|}.
+\end{equation}
+The intersection has zero area when boxes do not overlap. IoU is independent of class: a detector evaluation additionally requires matching class labels. High IoU indicates similar spatial extent but does not establish that two observations at different times belong to the same vehicle.
+
+One-stage and region-based detectors may produce multiple boxes around the same object. Non-maximum suppression (NMS) normally ranks predictions by score and removes sufficiently overlapping lower-scoring boxes within a class. NMS can suppress duplicate responses, but an aggressive threshold can also remove adjacent vehicles in dense traffic. Query-based set prediction instead encourages one-to-one assignments during training; implementation details still determine how many queries and scores are returned.
+
+\subsection{R-CNN: region-wise feature extraction}
+R-CNN introduced the idea of applying a convolutional network to candidate regions rather than designing a separate hand-crafted feature extractor for every object category \cite{rcnn}. A proposal algorithm first generates many candidate rectangles. Each candidate is cropped, transformed to a standard input size and sent through a CNN. A classifier scores foreground classes and background, while a regression component adjusts the predicted box.
+
+The project uses this \emph{region-wise computation pattern}, not the complete original R-CNN training recipe. The network processes individual proposal crops and uses a jointly trained softmax classification and box-regression head. The published scratch configuration uses a small convolutional backbone and up to 100 proposals. No SVM training stage is claimed for this implementation. Selective Search creates the candidate regions outside the learned network, so proposal generation and repeated crop processing add latency.
+
+The pipeline is useful pedagogically: it exposes the relationship between proposal quality, classification and localization. Its drawbacks are equally important. If proposal generation misses a small vehicle, the classifier cannot recover it. Overlapping candidate crops repeat substantial CNN work, and feature extraction cost grows with the number of proposals. A tight proposal budget may improve runtime while reducing proposal recall. These effects should be measured rather than inferred solely from the training loss.
+
+\subsection{Fast R-CNN: shared convolutional features}
+Fast R-CNN improves the region-based workflow by running the backbone once over the image. Proposed boxes are mapped to a shared feature map, and a region-of-interest operation converts each variable-size region into a fixed-size feature tensor. The region head then predicts class scores and box corrections \cite{fast}. This reduces repeated backbone work while retaining external proposal generation.
+
+The TrafficVision implementation uses RoI Align through Torchvision components and shares the image-level features for its classification and box heads. In the published configuration, Selective Search remains external and the proposal budget is 300. Thus the backbone is shared, but the proposal stage is not a learned region proposal network. Selective Search can still dominate total latency, especially on larger input images.
+
+For illustration, a standard multi-task region-head objective can be expressed as
+\begin{equation}
+L_{\mathrm{roi}}=L_{\mathrm{cls}}(p,c)+\mathbb{1}[c>0]\,\lambda L_{\mathrm{box}}(t,t^*),
+\end{equation}
+where $p$ is the class distribution, $c$ is the assigned label, $t$ is the predicted box parameterization and $t^*$ is its regression target. Box regression applies to foreground assignments; background regions contribute to classification. This equation explains the general role of the two heads and does not assert a particular numerical value of $\lambda$ for every detector in this project.
+
+\subsection{Faster R-CNN: learned proposals}
+Faster R-CNN replaces the separate proposal generator with a region proposal network (RPN) operating on shared convolutional features \cite{faster}. At each feature-map location, anchors of several sizes and aspect ratios act as candidate reference boxes. The RPN predicts objectness and box adjustments; proposed regions then enter an RoI head for final classification and regression. The broad structure is illustrated in Fig.~\ref{fig:faster}.
+
+\begin{figure}[htbp]
+\centering
+\input{figures/faster_rcnn.tex}
+\caption{Components of the assembled Faster R-CNN detector. The RPN and the RoI head share image features; the latter also receives the RPN proposals. Diagram is a conceptual view of the project implementation.}
+\label{fig:faster}
+\end{figure}
+
+The project constructs the anchor generator, RPN head, RoI Align, two-layer region head and predictor explicitly from reusable Torchvision operations. The standard configuration uses anchor sizes 16, 32, 64, 128 and 256 pixels with aspect ratios 0.5, 1 and 2, and caps proposals at 300. It resizes images according to its configured minimum and maximum dimensions, while the adapter returns results on the original image scale.
+
+The scratch experiment uses a compact CNN with 64 feature channels. The transfer-learning experiment uses ResNet-18 initialized from ImageNet. The comparison file reports approximately 1.06 million and 20.07 million parameters for the two runs, respectively. Their different capacity, initialization, training schedule and validation behavior make the comparison practically useful but unsuitable as an isolated study of pretraining. A controlled ablation would keep the backbone and optimization schedule fixed and vary the initialization only.
+
+Ignored rectangles require attention during training, not only evaluation. The project RPN excludes ignored-region negatives while preserving matched positive anchors; the RoI pipeline removes proposals in ignored regions before adding ground-truth positives. This is a project convention documented in the source. It is not necessarily equivalent to every official UA-DETRAC evaluation rule.
+
+\subsection{YOLOv8n baseline and target-domain fine-tuning}
+The YOLOv8n baseline begins from weights trained on COCO, while the fine-tuned run adapts the detection model to the four project labels. The architecture and training infrastructure are provided by Ultralytics \cite{yolo}. This baseline is distinct from the custom-model registry and is not evidence that the region-based or Transformer variants were pretrained in the same way.
+
+The mapping of source labels is a substantive experimental issue. COCO car and bus map naturally to corresponding project classes, while truck is mapped to \texttt{others}; the COCO baseline does not provide an equivalent \texttt{van} category under this adapter. Consequently, the baseline can receive poor class-specific results for reasons beyond localization quality. Fine-tuning changes the weights and target label space, so the baseline-to-fine-tuned gap should not be presented as a pure measure of a single training intervention.
+
+The YOLO export routine materializes frame images and labels for the native trainer. Its configured stride of five reduces the images exported from the selected training and validation splits; the shared evaluator later consumes the project dataset interface. This distinction matters when explaining why native per-epoch YOLO validation and a later common-evaluator report need not agree. The native training losses include box, classification and distribution focal components; the project plot adds these recorded components for its YOLO loss curve. Their sum is a run-specific diagnostic, not a dimensionless score that is directly comparable to another detector's loss.
+
+\subsection{Compact RT-DETR-inspired detector}
+DETR-style detection formulates object detection as a set-prediction task. A fixed set of object queries predicts candidate classes and boxes. During training, Hungarian matching assigns predictions to ground-truth objects under a cost based on class and localization. Matched predictions receive localization and classification supervision, while the remaining queries contribute to the classification objective. This reduces dependence on a post-processing duplicate-removal rule when compared with many conventional detector designs.
+
+The project implements a compact educational variant inspired by RT-DETR \cite{rtdetr,rtdetrcode}. A CNN produces three feature levels. Attention acts on the high-level features; top-down and bottom-up fusion combine scales. Encoder scores select up to 100 queries in the published configuration, and three Transformer decoder layers refine the predictions. An IoU-aware classification target and box losses supervise the encoder and decoder outputs. The released code uses dense cross-attention and omits denoising queries; it is not the official implementation and its runtime/accuracy must not be compared with published RT-DETR numbers as a faithful reproduction.
+
+The intuition behind a set loss is that one target should be assigned to at most one prediction. A schematic assignment objective is
+\begin{equation}
+\widehat{\pi}=\underset{\pi}{\arg\min}\sum_{i=1}^{N_{\mathrm{gt}}}
+\Bigl[\lambda_{\mathrm{cls}}C_{\mathrm{cls}}(i,\pi(i))+
+\lambda_{1}\lVert b_i-\widehat b_{\pi(i)}\rVert_1+
+\lambda_{\mathrm{giou}}C_{\mathrm{giou}}(i,\pi(i))\Bigr].
+\end{equation}
+Here $\pi$ matches ground-truth objects to queries, $C_{\mathrm{cls}}$ is a class cost and $C_{\mathrm{giou}}$ penalizes box disagreement. This expression conveys the assignment principle; the implementation should be consulted for exact weights, normalization and auxiliary loss terms. The label ``Hungarian matching loss'' in the repository's middle training-curve panel is imprecise because the plotting script reads the overall training loss, including the model's multiple loss components.
+
+\subsection{Shared output contract and practical consequences}
+All detector adapters return boxes, scores and labels to the rest of the system. This allows the same tracker and camera processing code to be used across detector experiments. It does not guarantee equivalent score calibration. A score of 0.3 from one architecture need not represent the same probability as 0.3 from another. A comparison of trackers should therefore specify the detector, score threshold and association settings, and should tune thresholds using validation data only.
+
+Image scaling also has practical consequences for vehicle detection. Increasing network resolution may make a distant vehicle occupy more pixels, but increases compute. A crop-based far-zone pass can improve effective resolution in a chosen area while introducing extra inference, boundary effects and duplicate boxes. The proposed pipeline maps crop detections back to the original frame and uses class-aware NMS, but the benefit and trade-off still need validation on annotated far-region samples.
