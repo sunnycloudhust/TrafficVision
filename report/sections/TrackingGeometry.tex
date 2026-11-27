@@ -1,0 +1,98 @@
+\section{Tracking, Camera Geometry and Speed Estimation}
+\label{sec:tracking-geometry}
+\subsection{From frame detections to trajectories}
+A detector works independently on each input frame. A tracker adds temporal continuity by associating current detections with object hypotheses retained from earlier frames. A trajectory is a time-ordered sequence of observations and IDs, rather than a single bounding box. Correct tracking requires both detection and association: a missed vehicle can fragment a trajectory, while matching a detection to the wrong existing track can create an identity switch.
+
+Tracking-by-detection systems typically alternate three operations. First, a motion model predicts the approximate location of each active track. Second, a cost matrix measures compatibility between tracks and detections. Third, an assignment algorithm chooses associations and the tracker updates, creates or ages track states. Costs can incorporate geometric overlap, motion uncertainty, class or appearance. The project tracker adapters separate these responsibilities from the detector so that the same detections can be supplied to different algorithms.
+
+\subsection{SORT-style baseline}
+SORT is a simple online tracking approach that combines motion prediction with association \cite{sort}. The project provides a SORT variant whose state includes bounding-box coordinates and velocities. Its Kalman model predicts a box at the next frame; IoU measures overlap with a candidate detection, and Hungarian assignment solves a minimum-cost matching problem. Detections below the configured confidence threshold do not create an association in this adapter. Tracks persist internally for a limited number of missed frames, but the adapter exports observations only when a detection is associated in the current frame.
+
+The prediction step is useful during brief occlusion, yet a model based only on position and IoU has limited ability to separate visually similar vehicles crossing paths. The association threshold and maximum track age involve trade-offs: a longer retention window can bridge a missed detection but can also make a stale state available for an incorrect match. A synthetic continuity test verifies a particular implementation path; tracking performance on traffic footage requires reference identities.
+
+\subsection{ByteTrack and low-confidence detections}
+ByteTrack distinguishes high-confidence detections from a second set of lower-confidence candidates \cite{bytetrack}. A track that cannot be matched to a high-confidence detection can be considered for another association using low-confidence observations. A low score can arise from occlusion, motion blur or small apparent size, so discarding every such detection before tracking may break a recoverable trajectory.
+
+The lower-score association stage should not be interpreted as permission to create new identities from every low-score box. The adapter has thresholds for association and track creation; a detection can be useful for matching an existing track without being sufficiently reliable to start a new one. The exact implementation and thresholds are determined by the configured Ultralytics tracker and its pinned version. Figure~\ref{fig:association} shows the reasoning conceptually, omitting implementation-specific details such as confirmation and lost-state bookkeeping.
+
+\begin{figure}[htbp]
+\centering
+\input{figures/association.tex}
+\caption{Conceptual two-stage association: low-confidence detections can support unmatched existing tracks. The precise state transitions and thresholds are governed by the configured tracker implementation.}
+\label{fig:association}
+\end{figure}
+
+Class-aware association also has consequences. The project adapter maintains separate tracker instances for detected classes and maps their internal IDs into project IDs. This avoids matching a car observation to a bus track, but an unstable detector class prediction can fragment a trajectory when a vehicle switches predicted class. A tracking experiment should therefore record the detector, class mapping, score thresholds, frame rate and tracker settings alongside HOTA or IDF1.
+
+\subsection{BoT-SORT and camera motion}
+BoT-SORT extends the family of tracking-by-detection methods with additional association mechanisms, including camera-motion compensation and optional appearance features in the original method \cite{botsort}. Camera-motion compensation estimates background motion to separate apparent object motion from camera movement. Appearance-based re-identification (ReID) can help distinguish visually different objects when geometric overlap is ambiguous.
+
+The project configuration is tailored to fixed-camera experiments: global motion compensation is off by default, and the adapter rejects \texttt{with\_reid: true} because a ReID encoder is not integrated in the inspected version. Therefore, the mere availability of the BoT-SORT adapter should not be described as an experiment with appearance-based ReID. Enabling camera-motion compensation or incorporating ReID would require additional configuration, compute and evaluation.
+
+\subsection{Polygon zones and the small-object problem}
+A polygon zone is a region defined by vertices in image coordinates. In TrafficVision, the bottom-centre of each bounding box provides a consistent reference point for deciding whether a detection lies inside a zone. Named far, middle or near zones can use different confidence thresholds and crop strategies. A separate measurement zone can restrict speed reporting to a portion of the road where the calibration is reliable.
+
+Zone assignment is not object detection. A polygon cannot recover a vehicle that is absent from detector predictions, nor can it independently determine a lost identity. Its contribution is to restrict or adapt the processing applied to observations. For distant traffic, a crop enlarged before inference can make small vehicles more prominent to the network, but it can also introduce duplicate boxes, larger compute requirements and missed objects at crop boundaries. A meaningful experiment would compare full-frame and crop-based processing on the same annotated frames, reporting far-zone recall, false positives and total runtime.
+
+The coordinate frame is part of the definition: a polygon drawn on a $960\times540$ source cannot safely be reused on a differently cropped or resized frame without a verified transformation. Camera movement, video stabilization or changed optics can also invalidate a previously drawn region. These are geometric configuration issues even when the detector itself still runs.
+
+\subsection{Homography assumptions}
+If the road region is approximately planar and the camera is fixed, a homography maps a road-plane point in image coordinates to a corresponding metric point \cite{opencvhomography}. It does not map arbitrary points above the road plane correctly: roof corners, signs and elevated surfaces generally do not obey the same road-plane relation. The bottom-centre of a box is used as a practical approximation to the tire--road contact location, but an axis-aligned rectangle can move as viewpoint, occlusion or detector output changes even when the true contact point is stable.
+
+Figure~\ref{fig:homography} illustrates the distinction between an image-space polygon and a metric road-plane coordinate system. The correspondences used to estimate $H$ must relate the same physical road points in both coordinate systems. Four point pairs are the mathematical minimum for a non-degenerate homography; more measured pairs can support a fit and a separate set of independent measurements can test it. A very low fitting error on only the four fitted points is not an independent estimate of real-world accuracy.
+
+\begin{figure}[htbp]
+\centering
+\input{figures/homography.tex}
+\caption{Conceptual projection from image points to road-plane coordinates. The measurement polygon selects where the estimate is used; known metric correspondences determine the scale. Geometry is illustrative, not a calibration for a real camera.}
+\label{fig:homography}
+\end{figure}
+
+Writing $H=(h_{ij})$ and $w=h_{31}u+h_{32}v+h_{33}$, the projected coordinates are
+\begin{equation}
+ X=\frac{h_{11}u+h_{12}v+h_{13}}{w},\qquad
+ Y=\frac{h_{21}u+h_{22}v+h_{23}}{w}.
+\end{equation}
+Near the homography horizon, $w$ approaches zero and a small image perturbation may produce a large world-coordinate displacement. An oblique or nearly horizontal view can still be used in principle, but a narrow distant road region often has little vertical resolution and is sensitive to calibration and box errors. Lens distortion, a sloped or curved road and changes in camera pose introduce further mismatch; the effective measurement area should be chosen and verified per camera.
+
+\subsection{Uncertainty-aware Kalman speed estimator}
+For each track, the project estimates a state containing two-dimensional world position and velocity:
+\begin{equation}
+\mathbf{x}_t=[X_t,Y_t,V_{X,t},V_{Y,t}]^{T}.
+\end{equation}
+Under a constant-velocity motion model over time interval $\Delta t$, the next position is predicted from the current position and velocity. The transition matrix used by the project has the form
+\begin{equation}
+F(\Delta t)=
+\begin{bmatrix}
+1&0&\Delta t&0\\
+0&1&0&\Delta t\\
+0&0&1&0\\
+0&0&0&1
+\end{bmatrix}.
+\end{equation}
+Predicted position covariance grows with motion uncertainty. A new observation $\mathbf z_t=[X_t,Y_t]^T$ then corrects the state when it is consistent with the prediction. The estimator checks the innovation using a Mahalanobis-distance gate, allowing outlying observations to be rejected. Excessively long gaps or repeated incompatible observations lead to a reset or reinitialization. Only observed tracks are passed to the metric update; a predicted box across a missing detection is not itself a measured world position.
+
+The code relates pixel noise to road-plane measurement uncertainty with the homography Jacobian. For a local pixel covariance $\Sigma_{uv}$, the first-order propagated covariance is
+\begin{equation}
+\Sigma_{XY}\approx J_H\,\Sigma_{uv}\,J_H^T,\qquad
+J_H=\frac{\partial(X,Y)}{\partial(u,v)}.
+\end{equation}
+The implementation uses a pixel-noise parameter and the local Jacobian to construct measurement covariance. It uses a numerically stable covariance update and checks an uncertainty criterion before displaying speed. These mechanisms express assumptions about noise; they are not a measurement of systematic error from a wrongly marked calibration or a biased bounding box.
+
+The final estimate is the magnitude of the filtered velocity vector converted from metres per second:
+\begin{equation}
+\widehat v_{\mathrm{km/h}}=3.6\sqrt{V_X^2+V_Y^2}.
+\end{equation}
+Figure~\ref{fig:speed-filter} summarizes the dependencies of this computation. The calibration and noise assumptions are separate from the tracker identity and timing inputs.
+\begin{figure}[htbp]
+\centering
+\input{figures/speed_filter.tex}
+\caption{Inputs and stages of the speed-estimation path. A numeric result requires a measured camera calibration and enough accepted observations.}
+\label{fig:speed-filter}
+\end{figure}
+When too few reliable observations are available, calibration is missing, or a gate rejects the observation, the pipeline can report \texttt{N/A}. At a fixed frame rate, elapsed time should reflect the actual number of frames between observations; with variable-rate material, reliable presentation timestamps are preferable. A correct time interval cannot repair a misidentified vehicle after an ID switch.
+
+\subsection{Calibration workflow and validation}
+The project provides tools for selecting road points and storing image/world pairs. For a rectangular road region, the first four image points can correspond to the physical rectangle's corners, and its measured length and width supply a metric coordinate system. For an arbitrary shape, additional measured pairwise distances can reconstruct a compatible planar arrangement. A drawing tool can assist with data entry, but drawing a quadrilateral and assigning an assumed width does not measure the road. Extrapolated points outside the image should only be used when their image positions are justified independently.
+
+A defensible workflow uses measured correspondences for the intended camera and resolution, checks for degeneracy and numerical error, and validates the estimated transformation on different known points. The measurement zone should avoid areas in which the road is hidden or the projected metric uncertainty is excessive. If the scene cannot provide adequate physical information, the system can still show detections and IDs while withholding speed. Alternative segment-speed evaluation using two road markers also requires their physical separation and the same vehicle identity at both crossing times.

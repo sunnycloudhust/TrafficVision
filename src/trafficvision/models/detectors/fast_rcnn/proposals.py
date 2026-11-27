@@ -28,11 +28,20 @@ class ExternalProposals(nn.Module):
                 rgb = np.clip((rgb * [0.229, 0.224, 0.225] + [0.485, 0.456, 0.406]) * 255, 0, 255).astype(
                     "uint8"
                 )
+                bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                max_side = 320
+                scale = min(1.0, max_side / max(height, width))
+                if scale < 1.0:
+                    sh, sw = max(16, int(round(height * scale))), max(16, int(round(width * scale)))
+                    bgr = cv2.resize(bgr, (sw, sh), interpolation=cv2.INTER_AREA)
+                    sx, sy = width / float(sw), height / float(sh)
+                else:
+                    sx, sy = 1.0, 1.0
                 search = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
-                search.setBaseImage(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+                search.setBaseImage(bgr)
                 search.switchToSelectiveSearchFast()
                 rects = search.process()[: self.limit]
-                boxes = [[x, y, x + w, y + h] for x, y, w, h in rects]
+                boxes = [[x * sx, y * sy, (x + w) * sx, (y + h) * sy] for x, y, w, h in rects]
             else:
                 boxes = []
                 for fraction in (0.125, 0.25, 0.5, 1.0):

@@ -1,0 +1,37 @@
+camera_id: MVI_40752
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  zone_1:
+    polygon:
+    - - 9
+      - 539
+    - - 872
+      - 105
+    - - 959
+      - 113
+    - - 959
+      - 265
+    - - 672
+      - 539
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true
+  zone_2:
+    polygon:
+    - - 936
+      - 61
+    - - 670
+      - 39
+    - - 0
+      - 269
+    - - 0
+      - 332
+    - - 350
+      - 361
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true

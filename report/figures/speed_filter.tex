@@ -1,0 +1,12 @@
+\begin{tikzpicture}[
+ node distance=5mm and 5mm,
+ block/.style={draw=blue!60!black,rounded corners,fill=blue!5,minimum height=11mm,align=center,text width=30mm,font=\small},
+ arrow/.style={-{Stealth[length=2mm]},thick}]
+\node[block] (point) {Observed box\\bottom centre};
+\node[block,right=of point] (world) {Homography\\world point};
+\node[block,right=of world] (gate) {Innovation gate\\Kalman update};
+\node[block,right=of gate] (speed) {Velocity vector\\km/h or N/A};
+\draw[arrow] (point)--(world); \draw[arrow] (world)--(gate); \draw[arrow] (gate)--(speed);
+\node[font=\scriptsize,below=4mm of world,align=center] {Calibration and\\pixel uncertainty};
+\node[font=\scriptsize,below=4mm of gate,align=center] {Track ID and\\elapsed time};
+\end{tikzpicture}

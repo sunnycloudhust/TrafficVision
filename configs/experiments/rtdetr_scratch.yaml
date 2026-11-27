@@ -1,3 +1,4 @@
 extends: [base.yaml, ../models/rtdetr.yaml]
 training:
   output: outputs/rtdetr
+  lr: 0.0005

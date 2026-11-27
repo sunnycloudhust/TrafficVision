@@ -1,0 +1,22 @@
+camera_id: MVI_39401
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  zone_1:
+    polygon:
+    - - 239
+      - 118
+    - - 493
+      - 112
+    - - 959
+      - 291
+    - - 959
+      - 381
+    - - 126
+      - 383
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true

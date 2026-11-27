@@ -1,4 +1,8 @@
 extends: [base.yaml, ../models/fast_rcnn.yaml]
 training:
   output: outputs/fast_rcnn
-  batch_size: 1
+  batch_size: 2
+  epochs: 10
+  lr_step: 4
+  max_steps: 300
+  validation_batches: 50

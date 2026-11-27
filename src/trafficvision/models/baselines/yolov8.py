@@ -61,16 +61,27 @@ def export_yolo_dataset(data_config, destination):
     destination = Path(destination).resolve()
     if destination.exists() and any(destination.iterdir()):
         raise FileExistsError("YOLO export requires an empty destination to avoid mixing old dataset splits")
+    stride = max(1, int(data_config.get("yolo_stride", 1)))
+    splits = tuple(data_config.get("yolo_splits", ("train", "val", "test")))
     for split in ("train", "val", "test"):
         images_dir, labels_dir = destination / "images" / split, destination / "labels" / split
         images_dir.mkdir(parents=True, exist_ok=True)
         labels_dir.mkdir(parents=True, exist_ok=True)
+        if split not in splits:
+            continue
         dataset = build_dataset(data_config, split)
         try:
             total = len(dataset)
         except (TypeError, NotImplementedError):
             total = None
-        for image, target in tqdm(dataset, total=total, desc=f"Exporting YOLO {split}", unit="image"):
+        if total is not None and stride > 1 and hasattr(dataset, "__getitem__"):
+            indices = range(0, total, stride)
+            iterator = (dataset[i] for i in indices)
+            iter_total = len(indices)
+        else:
+            iterator = ( item for idx, item in enumerate(dataset) if idx % stride == 0 )
+            iter_total = (total + stride - 1) // stride if total is not None else None
+        for image, target in tqdm(iterator, total=iter_total, desc=f"Exporting YOLO {split}", unit="image"):
             key = f"{int(target['image_id']):09d}"
             to_pil_image(mask_ignored_pixels(image, target)).save(images_dir / f"{key}.jpg")
             height, width = image.shape[-2:]

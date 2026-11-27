@@ -1,0 +1,76 @@
+\section{Analysis of Published Experiments}
+\label{sec:results-analysis}
+\subsection{Reading the detection tables}
+The detection tables answer a specific question: how did the available checkpoints score under the stored project-evaluation settings? They do not answer whether one architecture is intrinsically superior under equal conditions. Every full-split entry in Table~\ref{tab:full} records 10,260 validation frames, confidence threshold 0.25 for precision/recall, and the same documented ignore policy. The model configurations and initialization histories still differ substantially.
+
+Among those five full-validation reports, fine-tuned YOLOv8n has the highest stored AP$_{50:95}$ at 0.564. The ImageNet/ResNet-18 Faster R-CNN variant records 0.507 and scratch Faster R-CNN records 0.416. The gap between the two Faster R-CNN entries is 0.091 AP points, but the backbones, parameter counts and run schedules are different. The compact RT-DETR-inspired variant records 0.238, and the COCO-only YOLOv8n baseline records 0.259. These quantities are validation observations, not confidence intervals or results on held-out test sequences.
+
+The equal validation frame count makes these five outputs more suitable for a common table than the two 400-frame outputs. Even here, matching the total frame count does not independently prove the identities and preprocessing of every evaluated frame; the evaluation script and manifests should be archived with each run. Validation has also been used during training and model selection. As a result, the best validation checkpoint and a validation table are useful for development but should not be advertised as an unbiased final test estimate.
+
+\subsection{Per-class analysis on the full validation set}
+Table~\ref{tab:class-ap} uses the \texttt{map\_per\_class} values from the full-validation JSON files and the project mapping $1\rightarrow$ car, $2\rightarrow$ bus, $3\rightarrow$ van, $4\rightarrow$ others \cite{perclass}. These are AP$_{50:95}$ values, not AP$_{50}$. Each listed full-split JSON contains all four class IDs and finite values. Class frequency and per-sequence composition are not included in this table and must be considered before explaining differences between classes.
+
+\begin{table}[htbp]
+\centering
+\caption{Per-class AP$_{50:95}$ in the five 10,260-frame validation reports.}
+\label{tab:class-ap}
+\begin{tabular}{lrrrr}
+\toprule
+Run & Car & Bus & Van & Others \\
+\midrule
+Faster R-CNN, scratch & 0.574 & 0.404 & 0.522 & 0.164 \\
+Faster R-CNN, ImageNet & 0.549 & 0.676 & 0.512 & 0.293 \\
+RT-DETR-inspired, scratch & 0.523 & 0.105 & 0.317 & 0.007 \\
+YOLOv8n, COCO & 0.482 & 0.516 & 0.000 & 0.040 \\
+YOLOv8n, fine-tuned & 0.636 & 0.720 & 0.534 & 0.365 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The target-domain YOLO run has a higher stored value than the COCO-only baseline for every listed target class, but the zero van AP of the COCO baseline reflects the absence of an equivalent output mapping. It should not be interpreted as proof that a van was never physically detected as another COCO class. The \texttt{others} class is relatively weak in every full-validation run; however, its meaning depends on the underlying annotations and the model's class mapping. The table alone cannot distinguish class imbalance, visual ambiguity, annotation uncertainty and detector limitations.
+
+The 400-frame Fast R-CNN and R-CNN reports list $-1$ for bus and others. This is an unavailable value in the metric output, not an AP of zero; their AP summary is therefore not a four-class aggregate over the same class population as the full reports. Both the smaller sample and missing evaluable categories are reasons to place them in a separate table. The exact sample identities should be preserved if this partial evaluation is reproduced.
+
+\subsection{Analysis by object size}
+The full-validation reports include COCO-style AP summaries for small, medium and large objects. Table~\ref{tab:size-ap} transcribes the available values. These size categories use the evaluator's annotation-area conventions; they are not automatically equivalent to manually drawn far, middle and near polygons. An object in a far zone may be small, but mapping between the two definitions must be measured.
+
+\begin{table}[htbp]
+\centering
+\caption{AP$_{50:95}$ by evaluator object-size category, 10,260-frame validation reports.}
+\label{tab:size-ap}
+\begin{tabular}{lrrr}
+\toprule
+Run & Small & Medium & Large \\
+\midrule
+Faster R-CNN, scratch & 0.232 & 0.477 & 0.473 \\
+Faster R-CNN, ImageNet & 0.056 & 0.498 & 0.645 \\
+RT-DETR-inspired, scratch & 0.080 & 0.278 & 0.322 \\
+YOLOv8n, COCO & 0.085 & 0.215 & 0.347 \\
+YOLOv8n, fine-tuned & 0.419 & 0.542 & 0.670 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Small-object AP is lower than large-object AP for every listed run, with the caveat that their category labels, training setup and prediction mapping differ. This is consistent with the practical difficulty of detecting distant vehicles, but it does not quantify the benefit of the far-zone crop path. A direct crop ablation should use the same frames, same detector checkpoint, a documented NMS policy and a validation-selected threshold, and should report both small/far recall and the increase in false positives and compute.
+
+\subsection{What the training curves do and do not establish}
+The training plot is a composite of three panels generated by the repository's aggregation script: one groups training losses for R-CNN-family and YOLO runs, one isolates the compact Transformer run's training loss, and one plots recorded validation AP$_{50}$ histories. The script reads custom-model epoch records from \texttt{metrics.jsonl}, and derives YOLO training loss by adding its recorded box, class and distribution-focal loss fields from the native results CSV \cite{plotcode}. We verified the 95 rows in the published aggregate history against those source files after rounding, with zero mismatches in the checked fields.
+
+The original middle-panel title is misleading: despite the label ``Hungarian Matching Loss,'' the script plots the total training loss written by the trainer. Matching selects assignments, while the recorded sum also includes classification and localization losses for model outputs. The figure caption in this report corrects the interpretation without altering the group's source artifact. Moreover, the numerical magnitude of an R-CNN loss, a YOLO loss and a Transformer set loss cannot be compared as though they were measured in the same units or with identical normalizations.
+
+The right panel has a more serious comparability limitation. Recorded custom validation sizes are 1,200 frames per epoch for both Faster R-CNN runs and the compact Transformer, 100 for Fast R-CNN and 50 for R-CNN; YOLO uses its native validation on an exported dataset configured with stride five. At least some of these small subsets do not include evaluable ground truth for all four classes. Consequently, the curves can help diagnose the evolution of an individual run but do not constitute a fair cross-model competition. In particular, the higher native YOLO per-epoch AP$_{50}$ near the end of training does not contradict its lower 0.750 full-validation AP$_{50}$ in Table~\ref{tab:full}: the two numbers come from different evaluation settings and may refer to different selected epochs.
+
+\subsection{Training budgets and checkpoint selection}
+The custom trainer caps work per epoch through \texttt{max\_steps} and caps per-epoch validation through \texttt{validation\_batches}. For example, the scratch Faster R-CNN configuration uses batch size 8 and a maximum of 1,000 optimizer steps per epoch; the Fast R-CNN configuration uses batch size 2 and 300 steps. These are upper limits on steps in the specified runs, not a guarantee that all unique frames were seen. Because the number of optimizer updates, data order and model capacity vary, similar epoch numbers cannot be equated across the table.
+
+For custom detectors, the trainer selects a best checkpoint using the validation mAP from its configured validation process. With truncated validation, the selection signal comes from a smaller subset than the later full-validation reports. YOLO's native trainer maintains its own validation and checkpoint behavior. A future controlled study should save the precise list of frames used in checkpoint selection and final evaluation, and reserve the held-out test split for the final selected configurations. Repeated seeds and uncertainty estimates would further clarify whether observed differences are robust.
+
+\subsection{Runtime and deployment interpretation}
+The full-validation comparison records approximately 127.4 prediction calls per second for scratch Faster R-CNN, 85.9 for its ImageNet/ResNet-18 counterpart and 61.1 for fine-tuned YOLOv8n. The same CSV lists around 4.20 and 3.99 for the two partial R-CNN-family reports. These values come from the project's detector timing and depend on the execution environment. They should not be reported as the frame rate of a complete video application, nor interpreted as a universal model speed ranking across devices.
+
+The full application has additional costs: reading and decoding frames, potentially running crop inference, performing tracking association, projecting coordinates, drawing labels and encoding video. A stronger deployment study would time the complete pipeline separately and specify whether latency is measured per image or per batch, as well as accelerator synchronization and warm-up. Memory figures should identify whether they cover only allocated model memory or a broader peak of the application. The inspected JSON provides a GPU peak allocation value, but not a complete device specification; the team should supply the actual GPU model before a quantitative systems comparison is finalized.
+
+\subsection{What can be said about tracking and speed today}
+The source contains implementations and evaluators for tracking and speed. The inspected detection results do not establish a tracking score or validate a physical speed estimate. A video with stable-looking IDs is useful qualitative evidence that a pipeline runs, but without ground-truth matching it cannot establish IDF1 or HOTA. A plotted speed value is also not proof of accuracy if the scene scale was assumed or if the camera's metric mapping was not independently checked.
+
+The completed experiments can therefore support a substantial detector analysis now, while tracking and speed should be reported as system methodology plus clearly labelled pending quantitative validation. If the team has additional results not present in the inspected evaluation directory, those artifacts can be incorporated later with their sequence IDs, measurement protocol and ground-truth provenance.

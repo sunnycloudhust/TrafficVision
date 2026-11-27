@@ -1,0 +1,15 @@
+\begin{tikzpicture}[
+ node distance=7mm and 7mm,
+ block/.style={draw=blue!60!black,rounded corners,fill=blue!5,minimum height=12mm,align=center,text width=28mm,font=\small},
+ arrow/.style={-{Stealth[length=2mm]},thick,draw=black!70}]
+\node[block] (image) {Input\\image};
+\node[block,right=of image] (backbone) {CNN\\backbone};
+\node[block,right=of backbone] (rpn) {RPN\\anchors};
+\node[block,right=of rpn] (proposal) {Region\\proposals};
+\node[block,below=15mm of proposal] (roi) {RoI Align\\+ shared head};
+\node[block,left=of roi] (predict) {Class / box\\predictor};
+\node[block,left=of predict] (outputs) {Boxes, labels,\\scores};
+\draw[arrow] (image)--(backbone); \draw[arrow] (backbone)--(rpn); \draw[arrow] (rpn)--(proposal);
+\draw[arrow] (proposal)--(roi); \draw[arrow] (roi)--(predict); \draw[arrow] (predict)--(outputs);
+\draw[arrow] (backbone.south) |- ([yshift=-5mm]backbone.south) -| node[pos=.23,below,font=\scriptsize]{shared features} (roi.west);
+\end{tikzpicture}

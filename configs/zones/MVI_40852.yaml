@@ -1,0 +1,24 @@
+camera_id: MVI_40852
+frame_size:
+- 960
+- 540
+roi_only: true
+default_threshold: 0.25
+zones:
+  zone_1:
+    polygon:
+    - - 0
+      - 323
+    - - 351
+      - 79
+    - - 628
+      - 82
+    - - 959
+      - 313
+    - - 959
+      - 476
+    - - 0
+      - 474
+    confidence_threshold: 0.05
+    inference_scale: 1.0
+    measure_speed: true

@@ -1,0 +1,13 @@
+\begin{tikzpicture}[
+ node distance=6mm and 6mm,
+ block/.style={draw=blue!65!black,rounded corners,fill=blue!5,align=center,minimum height=11mm,text width=31mm,font=\small},
+ arrow/.style={-{Stealth[length=2mm]},thick,draw=black!70}]
+\node[block] (tracks) {Existing tracks\\predicted positions};
+\node[block,right=18mm of tracks] (first) {First association\\high scores};
+\node[block,right=18mm of first] (matched) {Matched\\track updates};
+\node[block,below=13mm of first] (second) {Second association\\lower scores};
+\node[block,right=18mm of second] (recover) {Recovered\\track updates};
+\draw[arrow] (tracks)--(first); \draw[arrow] (first)--(matched);
+\draw[arrow] (first)--node[right,font=\scriptsize]{unmatched tracks}(second);
+\draw[arrow] (second)--(recover);
+\end{tikzpicture}

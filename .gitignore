@@ -9,6 +9,8 @@
 /data/ua_detrac/*
 !/data/ua_detrac/world_points/
 !/data/ua_detrac/world_points/**
+!/data/ua_detrac/shards.json
+!/data/ua_detrac/splits.json
 
 # Generated application and experiment output
 outputs/
@@ -57,3 +59,12 @@ htmlcov/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Keep the small report audit logs, but ignore LaTeX build intermediates.
+!/report/evidence/outputs/
+!/report/evidence/outputs/**
+/report/*.aux
+/report/*.fdb_latexmk
+/report/*.fls
+/report/*.out
+/report/*.spl

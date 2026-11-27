@@ -1,0 +1,36 @@
+\section{Methodology}
+\label{sec:methods}
+\subsection{System overview}
+The pipeline separates detection, tracking, region assignment, geometry and export. For each video frame, a detector produces boxes, class labels and confidence scores in original-image coordinates. An interchangeable tracker associates observations across frames and emits object IDs. A polygon manager can retain road regions, assign near/far zones and apply zone-specific confidence thresholds. The bottom-centre of a tracked box is then used as an approximate road-contact point. If a valid camera calibration is available, that point is projected to a metric road plane and passed to a per-track speed estimator. The resulting frames and trajectories can be exported as MP4, CSV and JSON \cite{architecture}.
+
+Figure~\ref{fig:pipeline} separates the detector and association steps from physical calibration. Zone filtering is applied to detections before association; tracked boxes are then assigned to zones for downstream measurement. Camera-specific geometry and valid timing are needed only for the metric branch.
+\begin{figure}[htbp]
+\centering
+\input{figures/pipeline.tex}
+\caption{TrafficVision data flow. Solid arrows denote the data path; speed is emitted only when camera calibration and sufficient valid observations are available. Diagram drawn for this report from the published code.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Vehicle detection}
+\textbf{R-CNN and Fast R-CNN.} Both configurations use external region proposals. In the project R-CNN variant, proposals are cropped and processed individually by a convolutional network. The class and box heads are trained jointly with a softmax classifier; this differs from the original multi-stage SVM-based R-CNN procedure \cite{rcnn}. Fast R-CNN shares image-level convolutional features and extracts region features for classification and regression, following the shared-feature motivation of Fast R-CNN \cite{fast}. Selective Search is used as the configured proposal strategy in these experiments.
+
+\textbf{Faster R-CNN.} The project assembles a backbone, anchor generator, region proposal network, RoI Align, classification head and bounding-box regressor using reusable Torchvision operations. One experiment initializes a compact convolutional backbone from scratch, while a second initializes a ResNet-18 backbone with ImageNet weights. The latter is transfer learning, not a fully scratch-trained detector \cite{faster,architecture}. The backbone and parameter count change together, so this comparison cannot isolate the effect of pretraining alone.
+
+\textbf{Compact RT-DETR-inspired detector.} The custom Transformer variant combines multiscale CNN features, an attention-based hybrid encoder, cross-scale fusion, top-$k$ query selection, iterative decoder layers and Hungarian matching with classification and box losses. It uses dense cross-attention and omits denoising queries and other details of the official RT-DETR implementation. Accordingly, its scores must not be presented as a reproduction of the published RT-DETR benchmark \cite{rtdetr,rtdetrcode}.
+
+\textbf{YOLOv8n baseline.} The repository includes a COCO-pretrained YOLOv8n baseline and a UA-DETRAC fine-tuned checkpoint. The baseline and fine-tuned variant share the YOLO family but have different class spaces and training histories. We evaluate them with the project detection evaluator rather than treating the baseline's COCO labels as identical to the target label set \cite{yolo,evaluationcode}.
+
+\subsection{Tracking and polygon zones}
+The tracker adapter accepts normalized detections from any supported detector. The available choices include a SORT variant based on Kalman motion prediction and IoU association, ByteTrack, and BoT-SORT. ByteTrack uses low-confidence detections in an additional association stage, which can help reconnect an existing track when object confidence drops \cite{sort,bytetrack,botsort}. These adapters provide a common interface; their presence alone does not establish the tracking accuracy of a particular detector--tracker pair.
+
+Polygon zones define areas of interest in image coordinates. Zone assignment uses the box bottom-centre, and configured far-zone crops can be processed separately before boxes are mapped back and merged. A polygon can filter or organize detections, but it does not create missed detections or guarantee identity recovery. Zone geometry and resolution must match the individual camera.
+
+\subsection{Projection and speed}
+For an image point $(u,v)$ on the approximately planar road, a camera-specific homography maps it to world coordinates in metres:
+\begin{equation}
+\lambda\begin{bmatrix} X & Y & 1 \end{bmatrix}^{\!T} =
+H\begin{bmatrix} u & v & 1 \end{bmatrix}^{\!T}.
+\end{equation}
+At least four corresponding non-collinear points are required to estimate the transformation, but their physical coordinates must come from real measurements. The calibration should be checked using independent points not used for fitting \cite{opencvhomography}. Projecting a bottom-centre box point is an approximation: occlusion and low camera angles can shift it away from the true road-contact point.
+
+For observations separated by elapsed time $\Delta t$, a simple displacement-based speed is $v_{\mathrm{km/h}}=3.6\lVert\Delta(X,Y)\rVert/\Delta t$. The video pipeline uses a constant-velocity Kalman estimator on projected positions; measurement uncertainty is propagated using the homography Jacobian. It can suppress output for short or uncertain tracks and reject incompatible observations. Actual timestamps or a valid constant frame rate are essential, including across gaps. Without a reliable metric calibration, speed remains \texttt{N/A}; UA-DETRAC bounding boxes and IDs alone are not ground-truth vehicle speeds \cite{architecture}.

@@ -1,0 +1,17 @@
+\begin{tikzpicture}[
+ node distance=5mm and 5mm,
+ block/.style={draw=blue!60!black,rounded corners,fill=blue!5,minimum height=11mm,align=center, text width=27mm,font=\small},
+ io/.style={draw=black!60,rounded corners,fill=black!4,minimum height=11mm,align=center,text width=25mm,font=\small},
+ arrow/.style={-{Stealth[length=2mm]},thick,draw=black!70}]
+\node[io] (video) {Video frame\\and timestamp};
+\node[block,right=of video] (detect) {Detector\\boxes / scores};
+\node[block,right=of detect] (zone) {Zone filter\\and optional crop};
+\node[block,right=of zone] (track) {Tracker\\observed IDs};
+\draw[arrow] (video) -- (detect); \draw[arrow] (detect) -- (zone); \draw[arrow] (zone) -- (track);
+\node[block,below=13mm of track] (project) {Bottom centre\\$H$: pixel $\to$ m};
+\node[block,left=of project] (speed) {Kalman filter\\speed or N/A};
+\node[io,left=of speed] (export) {MP4 / CSV\\/ JSON};
+\node[io,below=8mm of project] (cal) {Measured camera\\calibration};
+\draw[arrow] (track) -- (project); \draw[arrow] (project) -- (speed); \draw[arrow] (speed) -- (export);
+\draw[arrow,dashed] (cal) -- (project);
+\end{tikzpicture}

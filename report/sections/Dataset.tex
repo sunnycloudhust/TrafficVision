@@ -1,0 +1,28 @@
+\section{Dataset and Preprocessing}
+\label{sec:dataset}
+\subsection{UA-DETRAC}
+UA-DETRAC is a benchmark for vehicle detection and tracking in road-camera footage, with bounding boxes, trajectory identifiers and vehicle attributes \cite{detrac}. The project uses four foreground classes: \texttt{car}, \texttt{bus}, \texttt{van} and \texttt{others}; label zero is reserved for detector background. Images are associated with their sequence and one-based frame number. The parser converts annotation boxes from left/top/width/height to continuous $(x_1,y_1,x_2,y_2)$ coordinates and retains track IDs and ignored regions \cite{architecture}.
+
+\subsection{Sequence-level split}
+To reduce leakage between adjacent video frames, complete sequences are assigned to only one split. Table~\ref{tab:splits} reports the published manifest counts rather than assuming a random frame-level division \cite{manifest}. These are project split counts and are not, by themselves, a claim of compliance with every official UA-DETRAC evaluation setting.
+\begin{table}[htbp]
+\centering
+\caption{Published sequence and frame counts.}
+\label{tab:splits}
+\begin{tabular}{lrr}
+\toprule
+Split & Sequences & Frames \\
+\midrule
+Training & 51 & 71,825 \\
+Validation & 9 & 10,260 \\
+Test & 40 & 56,167 \\
+\midrule
+Total & 100 & 138,252 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The repository contains a local frame manifest, a sequence split and TAR shards for remote data access. Training can read local data or use streaming/cache sources; the selected mode and storage environment should be recorded when reproducing an experiment \cite{repository}. In the published YOLO training configuration, \texttt{yolo\_stride: 5} is specified for train and validation export. Thus the YOLO training input should not be described as every frame of the full training split without checking the exported dataset \cite{yoloconfig}.
+
+\subsection{Ignored regions and class mapping}
+The shared evaluator removes predictions whose box centres fall inside ignored rectangles, except when a prediction matches a labelled positive of the same class at IoU at least 0.5. This project-specific rule must accompany the metrics when comparing results \cite{evaluationcode}. The COCO-pretrained YOLO baseline maps car to car, bus to bus and truck to \texttt{others}; COCO provides no corresponding pretrained \texttt{van} category in this mapping. The fine-tuned checkpoint uses the four UA-DETRAC labels. This difference limits a direct interpretation of per-class baseline results.
